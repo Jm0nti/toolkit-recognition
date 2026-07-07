@@ -1,0 +1,26 @@
+# ============================================================
+# Pipeline de deteccion de herramientas manuales
+# Probado con Python 3.10 / 3.11
+# ============================================================
+
+# --- Deteccion (Modulo 2) ---
+ultralytics==8.3.40
+
+# --- Aumento de datos (Modulo 1) ---
+albumentations==1.4.18
+
+# --- Vision / numerico ---
+opencv-python==4.10.0.84
+numpy==1.26.4
+Pillow==10.4.0
+
+# --- Deep learning ---
+# Nota: para GPU CUDA instala la rueda especifica desde https://pytorch.org
+# Ejemplo GPU:  pip install torch==2.4.1 torchvision==0.19.1 --index-url https://download.pytorch.org/whl/cu121
+torch==2.4.1
+torchvision==0.19.1
+
+# --- Utilidades ---
+tqdm==4.66.5
+PyYAML==6.0.2
+matplotlib==3.9.2

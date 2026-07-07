@@ -1,0 +1,11 @@
+path: C:/Users/Juan M/Documents/U/Semestre 2026-1/Vision Artificial/toolkit-img-recognition/data/augmented
+train: images/train
+val: images/val
+test: images/test
+nc: 5
+names:
+        0: metro
+        1: destornillador
+        2: martillo
+        3: pinzas
+        4: alicate

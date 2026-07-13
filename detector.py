@@ -209,6 +209,10 @@ def evaluate(dataset_yaml="data.yaml", model_path="models/best.pt", umbral=0.75)
 
     dataset_yaml = _resolver_data(dataset_yaml)
     device = _detectar_dispositivo()
+    if device == "mps":
+        # en MPS el NMS de la validacion se pasa del limite de tiempo
+        # y tumba el recall; en CPU la evaluacion es rapida igual
+        device = "cpu"
     modelo = YOLO(model_path)
     print(f"[INFO] Evaluando sobre split TEST ({dataset_yaml})...")
 

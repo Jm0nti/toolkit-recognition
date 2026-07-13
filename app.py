@@ -9,7 +9,8 @@ y se abre http://localhost:8000 en el navegador.
 """
 
 import base64
-import io
+import glob
+import json
 import os
 import time
 
@@ -17,14 +18,18 @@ import cv2
 import numpy as np
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 import uvicorn
 
 from detector import _detectar_dispositivo, _color_para_clase
 
 MODEL_PATH = "models/best.pt"
 SALIDA_DIR = "outputs/predicciones"
+os.makedirs(SALIDA_DIR, exist_ok=True)
 
 app = FastAPI(title="Detector de herramientas")
+# servir las imagenes guardadas para poder mostrarlas en el historial
+app.mount("/predicciones", StaticFiles(directory=SALIDA_DIR), name="predicciones")
 
 # el modelo se carga una sola vez, en la primera peticion
 _modelo = None
@@ -82,26 +87,43 @@ async def detectar(imagen: UploadFile = File(...), conf: float = 0.4):
         cv2.putText(salida, etiqueta, (x1 + 3, y1 - 6),
                     cv2.FONT_HERSHEY_SIMPLEX, escala, (20, 20, 20), grosor, cv2.LINE_AA)
 
-    # guardar copia en outputs/predicciones
-    os.makedirs(SALIDA_DIR, exist_ok=True)
-    nombre = time.strftime("%Y%m%d_%H%M%S") + "_pred.jpg"
-    cv2.imwrite(os.path.join(SALIDA_DIR, nombre), salida)
-
-    # imagen anotada en base64 para mostrarla directo en la pagina
-    ok, buf = cv2.imencode(".jpg", salida, [cv2.IMWRITE_JPEG_QUALITY, 90])
-    img_b64 = base64.b64encode(buf).decode() if ok else ""
-
     conteo = {}
     for d in detecciones:
         conteo[d["clase"]] = conteo.get(d["clase"], 0) + 1
 
-    return {
-        "imagen": f"data:image/jpeg;base64,{img_b64}",
+    # guardar la imagen y sus datos (para el historial)
+    base = time.strftime("%Y%m%d_%H%M%S") + "_pred"
+    cv2.imwrite(os.path.join(SALIDA_DIR, base + ".jpg"), salida)
+    registro = {
+        "imagen": f"/predicciones/{base}.jpg",
         "detecciones": detecciones,
         "conteo": conteo,
         "tiempo_ms": tiempo_ms,
-        "guardada_en": os.path.join(SALIDA_DIR, nombre),
+        "fecha": time.strftime("%d/%m/%Y %H:%M"),
     }
+    with open(os.path.join(SALIDA_DIR, base + ".json"), "w", encoding="utf-8") as fh:
+        json.dump(registro, fh, ensure_ascii=False)
+
+    # ademas la imagen en base64 para mostrarla al instante sin recargar
+    ok, buf = cv2.imencode(".jpg", salida, [cv2.IMWRITE_JPEG_QUALITY, 90])
+    inmediata = f"data:image/jpeg;base64,{base64.b64encode(buf).decode()}" if ok else registro["imagen"]
+
+    return {**registro, "imagen": inmediata,
+            "guardada_en": os.path.join(SALIDA_DIR, base + ".jpg")}
+
+
+@app.get("/historial")
+def historial(limite: int = 24):
+    """Lista las ultimas predicciones guardadas, de la mas nueva a la mas vieja."""
+    archivos = sorted(glob.glob(os.path.join(SALIDA_DIR, "*.json")), reverse=True)
+    items = []
+    for ruta in archivos[:limite]:
+        try:
+            with open(ruta, encoding="utf-8") as fh:
+                items.append(json.load(fh))
+        except Exception:
+            pass
+    return {"items": items}
 
 
 if __name__ == "__main__":

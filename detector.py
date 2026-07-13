@@ -19,13 +19,33 @@ import shutil
 import cv2
 import numpy as np
 
-
-# ------------------------------------------------------------------
 # Utilidades
-# ------------------------------------------------------------------
+
+REPO_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def _resolver_data(dataset_yaml):
+    """
+    Si el data.yaml tiene un path relativo, genera una copia con el path
+    absoluto (respecto al repo) para que ultralytics lo encuentre siempre.
+    """
+    import yaml
+    with open(dataset_yaml, "r", encoding="utf-8") as fh:
+        cfg = yaml.safe_load(fh)
+
+    ruta = cfg.get("path", "")
+    if not ruta or os.path.isabs(ruta):
+        return dataset_yaml
+
+    cfg["path"] = os.path.normpath(os.path.join(REPO_DIR, ruta))
+    resuelto = os.path.join(REPO_DIR, ".data_resuelto.yaml")
+    with open(resuelto, "w", encoding="utf-8") as fh:
+        yaml.safe_dump(cfg, fh, allow_unicode=True)
+    return resuelto
+
 
 def _detectar_dispositivo():
-    """Fuerza CUDA si está disponible, si no usa CPU."""
+    """Elige el mejor dispositivo: CUDA (NVIDIA), MPS (Mac) o CPU."""
     try:
         import torch
         if torch.cuda.is_available():
@@ -33,9 +53,11 @@ def _detectar_dispositivo():
             vram   = torch.cuda.get_device_properties(0).total_memory / 1024**3
             print(f"[INFO] GPU detectada: {nombre} ({vram:.1f} GB VRAM)")
             return "cuda"
-        else:
-            print("[AVISO] CUDA no disponible, usando CPU.")
-            return "cpu"
+        if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+            print("[INFO] Chip Apple detectado, usando MPS.")
+            return "mps"
+        print("[AVISO] Sin GPU, usando CPU.")
+        return "cpu"
     except ImportError:
         return "cpu"
 
@@ -46,9 +68,7 @@ def _color_para_clase(class_id):
     return tuple(int(c) for c in rng.integers(60, 255, size=3))
 
 
-# ------------------------------------------------------------------
 # ENTRENAMIENTO
-# ------------------------------------------------------------------
 
 def train(dataset_yaml="data.yaml", model_size="n", epochs=100,
           project="runs", name="tools", output_weights="models/best.pt"):
@@ -58,6 +78,7 @@ def train(dataset_yaml="data.yaml", model_size="n", epochs=100,
     """
     from ultralytics import YOLO
 
+    dataset_yaml = _resolver_data(dataset_yaml)
     device = _detectar_dispositivo()
 
     modelo = YOLO(f"yolov8{model_size}.pt")  # pesos preentrenados COCO
@@ -86,6 +107,11 @@ def train(dataset_yaml="data.yaml", model_size="n", epochs=100,
         hyperparams["cache"]  = True   # cachear dataset en RAM para ir mas rapido
         hyperparams["half"]   = True   # FP16: reduce VRAM a la mitad, misma precision
         print("[INFO] Modo GPU: batch=8, FP16 activado, cache en RAM.")
+    elif device == "mps":
+        hyperparams["batch"]  = 8
+        hyperparams["cache"]  = True
+        hyperparams["half"]   = False  # FP16 no aplica en MPS
+        print("[INFO] Modo Mac (MPS): batch=8, cache en RAM.")
     else:
         hyperparams["batch"]  = 4
         hyperparams["cache"]  = False
@@ -112,13 +138,11 @@ def train(dataset_yaml="data.yaml", model_size="n", epochs=100,
         pass
     return metricas
 
-
-# ------------------------------------------------------------------
 # PREDICCION
-# ------------------------------------------------------------------
+
 
 def predict(source, model_path="models/best.pt", conf=0.4, iou=0.5,
-            output_dir="runs/predict"):
+            output_dir="outputs/predicciones"):
     """
     Ejecuta prediccion sobre una imagen, array numpy o carpeta.
     Devuelve lista de dicts con class_id, class_name, confidence,
@@ -165,10 +189,7 @@ def predict(source, model_path="models/best.pt", conf=0.4, iou=0.5,
     print(f"[OK] {len(detecciones)} detecciones. Visualizaciones en: {output_dir}")
     return detecciones
 
-
-# ------------------------------------------------------------------
 # EVALUACION
-# ------------------------------------------------------------------
 
 def evaluate(dataset_yaml="data.yaml", model_path="models/best.pt", umbral=0.75):
     """
@@ -176,7 +197,12 @@ def evaluate(dataset_yaml="data.yaml", model_path="models/best.pt", umbral=0.75)
     """
     from ultralytics import YOLO
 
+    dataset_yaml = _resolver_data(dataset_yaml)
     device = _detectar_dispositivo()
+    if device == "mps":
+        # en MPS el NMS de la validacion se pasa del limite de tiempo
+        # y tumba el recall; en CPU la evaluacion es rapida igual
+        device = "cpu"
     modelo = YOLO(model_path)
     print(f"[INFO] Evaluando sobre split TEST ({dataset_yaml})...")
 
@@ -209,10 +235,15 @@ def evaluate(dataset_yaml="data.yaml", model_path="models/best.pt", umbral=0.75)
     print(f"{'GLOBAL mAP@0.5':<24}{map50:>10.3f}")
     print(f"{'GLOBAL mAP@0.5:0.95':<24}{map5095:>10.3f}")
 
-    save_dir = getattr(metricas, "save_dir", "")
-    cm_path  = os.path.join(str(save_dir), "confusion_matrix.png")
-    if os.path.exists(cm_path):
-        print(f"[OK] Matriz de confusion: {cm_path}")
+    # Copiar los graficos (matriz de confusion, curvas) a outputs/metricas
+    save_dir = str(getattr(metricas, "save_dir", ""))
+    destino  = "outputs/metricas"
+    os.makedirs(destino, exist_ok=True)
+    if save_dir and os.path.isdir(save_dir):
+        for f in os.listdir(save_dir):
+            if f.endswith((".png", ".jpg", ".csv")):
+                shutil.copy(os.path.join(save_dir, f), os.path.join(destino, f))
+        print(f"[OK] Graficos de metricas copiados a: {destino}/")
 
     print("\n" + "=" * 66)
     if map50 >= umbral:
@@ -224,10 +255,7 @@ def evaluate(dataset_yaml="data.yaml", model_path="models/best.pt", umbral=0.75)
     return {"mAP50": map50, "mAP50_95": map5095,
             "por_clase": resultado_clases, "passed": map50 >= umbral}
 
-
-# ------------------------------------------------------------------
 # CLI
-# ------------------------------------------------------------------
 
 def main():
     parser = argparse.ArgumentParser(description="Detector YOLOv8 de herramientas.")
@@ -242,7 +270,7 @@ def main():
     p_pred.add_argument("--source",     required=True)
     p_pred.add_argument("--model",      default="models/best.pt")
     p_pred.add_argument("--conf",       type=float, default=0.4)
-    p_pred.add_argument("--output_dir", default="runs/predict")
+    p_pred.add_argument("--output_dir", default="outputs/predicciones")
 
     p_eval = sub.add_parser("evaluate", help="Evaluar sobre split test.")
     p_eval.add_argument("--data",  default="data.yaml")

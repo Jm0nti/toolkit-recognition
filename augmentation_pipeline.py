@@ -39,10 +39,7 @@ import albumentations as A
 IMG_EXTS = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
 TARGET   = 640  # tamaño objetivo
 
-
-# ══════════════════════════════════════════════════════════════════
 # SECCIÓN 1 — Lectura de anotaciones
-# ══════════════════════════════════════════════════════════════════
 
 def poligono_a_bbox(coords: list[float]) -> tuple[float, float, float, float]:
     """Convierte polígono normalizado [x1,y1,...] → bbox YOLO (cx,cy,w,h)."""
@@ -79,10 +76,7 @@ def escribir_yolo_txt(ruta_txt: str, bboxes: list, labels: list) -> None:
         for (cx, cy, w, h), cid in zip(bboxes, labels):
             fh.write(f"{cid} {cx:.6f} {cy:.6f} {w:.6f} {h:.6f}\n")
 
-
-# ──────────────────────────────────────────────────────────────────
 # Carga desde NDJSON
-# ──────────────────────────────────────────────────────────────────
 
 def cargar_ndjson(ruta_ndjson: str) -> tuple[dict, dict]:
     """
@@ -180,10 +174,7 @@ def listar_pares_txt(carpeta: str) -> list[tuple[str, str, list, list]]:
         pares.append((ruta_img, base, bboxes, labels))
     return pares
 
-
-# ══════════════════════════════════════════════════════════════════
 # SECCIÓN 2 — Pipeline de augmentation
-# ══════════════════════════════════════════════════════════════════
 
 def _try_kwargs(clase, *variantes):
     """Instancia `clase` probando varios conjuntos de kwargs (compatibilidad)."""
@@ -247,10 +238,7 @@ def construir_pipeline():
                                  min_visibility=0.4),
     )
 
-
-# ══════════════════════════════════════════════════════════════════
 # SECCIÓN 3 — Mosaico
-# ══════════════════════════════════════════════════════════════════
 
 def mosaico(pares: list, size: int = TARGET):
     """
@@ -281,10 +269,7 @@ def mosaico(pares: list, size: int = TARGET):
 
     return lienzo, out_bboxes, out_labels
 
-
-# ══════════════════════════════════════════════════════════════════
 # SECCIÓN 4 — Splits y guardado
-# ══════════════════════════════════════════════════════════════════
 
 def crear_estructura(base: str) -> None:
     """Crea images/{train,val,test} y labels/{train,val,test}."""
@@ -331,15 +316,11 @@ def guardar_split(items: list, base: str, split: str) -> None:
             bboxes, labels,
         )
 
-
-# ══════════════════════════════════════════════════════════════════
 # SECCIÓN 5 — Principal
-# ══════════════════════════════════════════════════════════════════
 
 def main():
-    # ══════════════════════════════════════════════════════════════
     # CONFIGURACIÓN — Edita estos valores según tu proyecto
-    # ══════════════════════════════════════════════════════════════
+
     class args:
         input_dir    = "data/raw"               # carpeta con las imágenes originales
         ndjson       = "data/raw/annotations.ndjson"     # ruta al .ndjson de Ultralytics
@@ -347,12 +328,11 @@ def main():
         factor       = 12                       # imágenes generadas por imagen original
         mosaic_ratio = 0.30                     # fracción de imágenes vía mosaico
         seed         = 42
-    # ══════════════════════════════════════════════════════════════
 
     random.seed(args.seed)
     np.random.seed(args.seed)
 
-    # ── Cargar pares según la fuente ──────────────────────────────
+    # Cargar pares según la fuente
     if args.ndjson:
         if not os.path.exists(args.ndjson):
             print(f"[ERROR] NDJSON no encontrado: {args.ndjson}")
@@ -373,7 +353,7 @@ def main():
 
     print(f"[INFO] {len(pares)} imágenes anotadas encontradas. Factor={args.factor}")
 
-    # ── Aumento clásico ───────────────────────────────────────────
+    # Aumento clásico
     pipeline  = construir_pipeline()
     generados = []  # (nombre, img_bgr, bboxes, labels)
 
@@ -401,7 +381,7 @@ def main():
                               list(res["bboxes"]),
                               list(res["class_labels"])))
 
-    # ── Mosaicos ──────────────────────────────────────────────────
+    # Mosaicos 
     total_objetivo = len(pares) * args.factor
     n_mosaico      = int(total_objetivo * args.mosaic_ratio)
 
@@ -412,7 +392,7 @@ def main():
     print(f"[INFO] Total imágenes generadas: {len(generados)} "
           f"(incluye {n_mosaico} mosaicos)")
 
-    # ── Split estratificado ───────────────────────────────────────
+    # Split estratificado 
     items_meta = [(n, b, l) for (n, _img, b, l) in generados]
     train_m, val_m, test_m = split_estratificado(items_meta)
     nombres_train = {n for n, _b, _l in train_m}
@@ -432,7 +412,7 @@ def main():
     guardar_split(val_full,   args.output_dir, "val")
     guardar_split(test_full,  args.output_dir, "test")
 
-    # ── Guardar classes.txt ───────────────────────────────────────
+    # Guardar classes.txt 
     ruta_classes = os.path.join(args.output_dir, "classes.txt")
     if isinstance(nombres_clase, dict):
         with open(ruta_classes, "w", encoding="utf-8") as fh:
@@ -448,7 +428,7 @@ def main():
         if os.path.exists(src):
             shutil.copy(src, ruta_classes)
 
-    # ── Estadísticas ──────────────────────────────────────────────
+    # Estadísticas
     dist_train = defaultdict(int)
     for _n, _img, _b, labels in train_full:
         for cid in labels:
@@ -475,9 +455,7 @@ def main():
     print(f"\n[OK] Dataset listo en: {args.output_dir}")
 
 
-# ══════════════════════════════════════════════════════════════════
 # Helpers de lectura de clases
-# ══════════════════════════════════════════════════════════════════
 
 def _leer_classes_txt(carpeta: str):
     """Lee classes.txt desde una carpeta, devuelve dict {str_id: nombre}."""

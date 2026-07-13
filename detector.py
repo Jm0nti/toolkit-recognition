@@ -27,13 +27,24 @@ import numpy as np
 REPO_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
-def _preparar_rutas():
-    """Hace que las rutas relativas del data.yaml se busquen dentro del repo."""
-    try:
-        from ultralytics import settings
-        settings.update({"datasets_dir": REPO_DIR})
-    except Exception:
-        pass
+def _resolver_data(dataset_yaml):
+    """
+    Si el data.yaml tiene un path relativo, genera una copia con el path
+    absoluto (respecto al repo) para que ultralytics lo encuentre siempre.
+    """
+    import yaml
+    with open(dataset_yaml, "r", encoding="utf-8") as fh:
+        cfg = yaml.safe_load(fh)
+
+    ruta = cfg.get("path", "")
+    if not ruta or os.path.isabs(ruta):
+        return dataset_yaml
+
+    cfg["path"] = os.path.normpath(os.path.join(REPO_DIR, ruta))
+    resuelto = os.path.join(REPO_DIR, ".data_resuelto.yaml")
+    with open(resuelto, "w", encoding="utf-8") as fh:
+        yaml.safe_dump(cfg, fh, allow_unicode=True)
+    return resuelto
 
 
 def _detectar_dispositivo():
@@ -72,7 +83,7 @@ def train(dataset_yaml="data.yaml", model_size="n", epochs=100,
     """
     from ultralytics import YOLO
 
-    _preparar_rutas()
+    dataset_yaml = _resolver_data(dataset_yaml)
     device = _detectar_dispositivo()
 
     modelo = YOLO(f"yolov8{model_size}.pt")  # pesos preentrenados COCO
@@ -196,7 +207,7 @@ def evaluate(dataset_yaml="data.yaml", model_path="models/best.pt", umbral=0.75)
     """
     from ultralytics import YOLO
 
-    _preparar_rutas()
+    dataset_yaml = _resolver_data(dataset_yaml)
     device = _detectar_dispositivo()
     modelo = YOLO(model_path)
     print(f"[INFO] Evaluando sobre split TEST ({dataset_yaml})...")

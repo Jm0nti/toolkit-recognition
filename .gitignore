@@ -8,6 +8,7 @@ __pycache__/
 
 # Generado por el pipeline
 data/augmented/
+.data_resuelto.yaml
 runs/
 outputs/*
 !outputs/.gitkeep

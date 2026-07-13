@@ -19,10 +19,7 @@ import shutil
 import cv2
 import numpy as np
 
-
-# ------------------------------------------------------------------
 # Utilidades
-# ------------------------------------------------------------------
 
 REPO_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -71,9 +68,7 @@ def _color_para_clase(class_id):
     return tuple(int(c) for c in rng.integers(60, 255, size=3))
 
 
-# ------------------------------------------------------------------
 # ENTRENAMIENTO
-# ------------------------------------------------------------------
 
 def train(dataset_yaml="data.yaml", model_size="n", epochs=100,
           project="runs", name="tools", output_weights="models/best.pt"):
@@ -143,10 +138,8 @@ def train(dataset_yaml="data.yaml", model_size="n", epochs=100,
         pass
     return metricas
 
-
-# ------------------------------------------------------------------
 # PREDICCION
-# ------------------------------------------------------------------
+
 
 def predict(source, model_path="models/best.pt", conf=0.4, iou=0.5,
             output_dir="outputs/predicciones"):
@@ -196,10 +189,7 @@ def predict(source, model_path="models/best.pt", conf=0.4, iou=0.5,
     print(f"[OK] {len(detecciones)} detecciones. Visualizaciones en: {output_dir}")
     return detecciones
 
-
-# ------------------------------------------------------------------
 # EVALUACION
-# ------------------------------------------------------------------
 
 def evaluate(dataset_yaml="data.yaml", model_path="models/best.pt", umbral=0.75):
     """
@@ -265,10 +255,7 @@ def evaluate(dataset_yaml="data.yaml", model_path="models/best.pt", umbral=0.75)
     return {"mAP50": map50, "mAP50_95": map5095,
             "por_clase": resultado_clases, "passed": map50 >= umbral}
 
-
-# ------------------------------------------------------------------
 # CLI
-# ------------------------------------------------------------------
 
 def main():
     parser = argparse.ArgumentParser(description="Detector YOLOv8 de herramientas.")

@@ -24,8 +24,20 @@ import numpy as np
 # Utilidades
 # ------------------------------------------------------------------
 
+REPO_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def _preparar_rutas():
+    """Hace que las rutas relativas del data.yaml se busquen dentro del repo."""
+    try:
+        from ultralytics import settings
+        settings.update({"datasets_dir": REPO_DIR})
+    except Exception:
+        pass
+
+
 def _detectar_dispositivo():
-    """Fuerza CUDA si está disponible, si no usa CPU."""
+    """Elige el mejor dispositivo: CUDA (NVIDIA), MPS (Mac) o CPU."""
     try:
         import torch
         if torch.cuda.is_available():
@@ -33,9 +45,11 @@ def _detectar_dispositivo():
             vram   = torch.cuda.get_device_properties(0).total_memory / 1024**3
             print(f"[INFO] GPU detectada: {nombre} ({vram:.1f} GB VRAM)")
             return "cuda"
-        else:
-            print("[AVISO] CUDA no disponible, usando CPU.")
-            return "cpu"
+        if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+            print("[INFO] Chip Apple detectado, usando MPS.")
+            return "mps"
+        print("[AVISO] Sin GPU, usando CPU.")
+        return "cpu"
     except ImportError:
         return "cpu"
 
@@ -58,6 +72,7 @@ def train(dataset_yaml="data.yaml", model_size="n", epochs=100,
     """
     from ultralytics import YOLO
 
+    _preparar_rutas()
     device = _detectar_dispositivo()
 
     modelo = YOLO(f"yolov8{model_size}.pt")  # pesos preentrenados COCO
@@ -86,6 +101,11 @@ def train(dataset_yaml="data.yaml", model_size="n", epochs=100,
         hyperparams["cache"]  = True   # cachear dataset en RAM para ir mas rapido
         hyperparams["half"]   = True   # FP16: reduce VRAM a la mitad, misma precision
         print("[INFO] Modo GPU: batch=8, FP16 activado, cache en RAM.")
+    elif device == "mps":
+        hyperparams["batch"]  = 8
+        hyperparams["cache"]  = True
+        hyperparams["half"]   = False  # FP16 no aplica en MPS
+        print("[INFO] Modo Mac (MPS): batch=8, cache en RAM.")
     else:
         hyperparams["batch"]  = 4
         hyperparams["cache"]  = False
@@ -176,6 +196,7 @@ def evaluate(dataset_yaml="data.yaml", model_path="models/best.pt", umbral=0.75)
     """
     from ultralytics import YOLO
 
+    _preparar_rutas()
     device = _detectar_dispositivo()
     modelo = YOLO(model_path)
     print(f"[INFO] Evaluando sobre split TEST ({dataset_yaml})...")

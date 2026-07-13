@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Detector de herramientas · Grupo 3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;700;800&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --acero:#22303c;        /* fondo azul acero del taller */
+    --acero-claro:#2c3d4c;
+    --acero-panel:#1b2731;
+    --cinta:#f2b807;        /* amarillo flexometro */
+    --rojo-caja:#d1493f;
+    --crema:#f1ece2;
+    --grafito:#93a4b1;
+    --linea:#3a4d5d;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:var(--acero);
+    color:var(--crema);
+    font-family:"IBM Plex Sans",system-ui,sans-serif;
+    min-height:100vh;
+  }
+
+  /* franja superior: cinta metrica (marcas altas cada 50px, cortas cada 10px) */
+  .cinta{
+    height:26px;
+    background-color:var(--cinta);
+    background-image:
+      repeating-linear-gradient(90deg, rgba(25,25,25,.9) 0 2px, transparent 2px 50px),
+      repeating-linear-gradient(90deg, rgba(25,25,25,.7) 0 1.5px, transparent 1.5px 10px);
+    background-size:50px 17px, 10px 8px;
+    background-repeat:repeat-x;
+    border-bottom:2px solid rgba(25,25,25,.55);
+  }
+
+  header{max-width:1100px;margin:0 auto;padding:36px 24px 8px}
+  .eyebrow{
+    font-family:"IBM Plex Mono",monospace;
+    font-size:12px;letter-spacing:.22em;color:var(--cinta);
+    text-transform:uppercase;
+  }
+  h1{
+    font-family:"Saira Condensed","Arial Narrow",sans-serif;
+    font-weight:800;font-size:clamp(40px,7vw,72px);
+    line-height:.95;text-transform:uppercase;letter-spacing:.01em;
+    margin-top:6px;
+  }
+  h1 .fina{font-weight:500;color:var(--grafito)}
+  .sub{margin-top:10px;color:var(--grafito);max-width:56ch}
+
+  main{max-width:1100px;margin:0 auto;padding:24px}
+
+  /* panel perforado (pegboard) */
+  .pegboard{
+    background:
+      radial-gradient(circle 5px at 20px 20px, var(--acero-panel) 98%, transparent) 0 0/56px 56px,
+      var(--acero-claro);
+    border:1px solid var(--linea);
+    border-radius:10px;
+    padding:34px;
+  }
+
+  /* zona de soltar: silueta de herramienta que "falta" en el tablero */
+  .zona{
+    border:2px dashed var(--grafito);
+    border-radius:10px;
+    min-height:280px;
+    display:flex;flex-direction:column;gap:14px;
+    align-items:center;justify-content:center;
+    text-align:center;cursor:pointer;
+    transition:border-color .15s, background .15s;
+    outline:none;
+  }
+  .zona:hover,.zona:focus-visible,.zona.encima{
+    border-color:var(--cinta);
+    background:rgba(242,184,7,.05);
+  }
+  .zona svg{opacity:.75}
+  .zona strong{font-family:"Saira Condensed",sans-serif;font-size:22px;letter-spacing:.04em;text-transform:uppercase}
+  .zona span{color:var(--grafito);font-size:14px}
+  .zona kbd{
+    font-family:"IBM Plex Mono",monospace;font-size:12px;
+    border:1px solid var(--linea);border-bottom-width:3px;
+    border-radius:4px;padding:1px 6px;background:var(--acero-panel);
+  }
+
+  .controles{
+    display:flex;flex-wrap:wrap;gap:16px;align-items:center;
+    margin-top:18px;
+  }
+  .btn{
+    font-family:"Saira Condensed",sans-serif;font-weight:700;
+    font-size:17px;letter-spacing:.06em;text-transform:uppercase;
+    background:var(--cinta);color:#1c1c1c;border:none;border-radius:6px;
+    padding:10px 22px;cursor:pointer;
+  }
+  .btn:hover{filter:brightness(1.08)}
+  .btn:focus-visible{outline:3px solid var(--crema);outline-offset:2px}
+  .conf{display:flex;align-items:center;gap:12px;color:var(--grafito);font-size:14px;white-space:nowrap}
+  .conf input{accent-color:var(--cinta)}
+  .conf output{font-family:"IBM Plex Mono",monospace;color:var(--crema)}
+
+  /* resultados */
+  #resultados{display:none;margin-top:26px;gap:26px;grid-template-columns:1.6fr 1fr;align-items:start}
+  #resultados.visible{display:grid}
+  @media (max-width:820px){#resultados.visible{grid-template-columns:1fr}}
+
+  .marco{
+    background:var(--acero-panel);border:1px solid var(--linea);
+    border-radius:10px;padding:12px;
+  }
+  .marco img{width:100%;border-radius:6px;display:block}
+  .marco figcaption{
+    font-family:"IBM Plex Mono",monospace;font-size:12px;
+    color:var(--grafito);margin-top:10px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;
+  }
+
+  .titulo-lista{
+    font-family:"Saira Condensed",sans-serif;font-weight:700;font-size:20px;
+    text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;
+    display:flex;justify-content:space-between;align-items:baseline;
+  }
+  .titulo-lista small{font-family:"IBM Plex Mono",monospace;color:var(--cinta);font-size:13px}
+
+  /* cada deteccion como etiqueta de cajon del organizador */
+  .etiqueta{
+    background:var(--acero-panel);
+    border:1px solid var(--linea);
+    border-left:6px solid var(--color,var(--cinta));
+    border-radius:6px;
+    padding:10px 14px;margin-bottom:10px;
+  }
+  .etiqueta .fila{display:flex;justify-content:space-between;align-items:baseline}
+  .etiqueta .nombre{
+    font-family:"Saira Condensed",sans-serif;font-weight:700;
+    font-size:19px;text-transform:uppercase;letter-spacing:.05em;
+  }
+  .etiqueta .valor{font-family:"IBM Plex Mono",monospace;font-size:14px;color:var(--cinta)}
+  /* barra de confianza con marcas de regla */
+  .barra{
+    margin-top:8px;height:10px;border-radius:3px;overflow:hidden;
+    background:
+      repeating-linear-gradient(90deg, transparent 0 24px, rgba(255,255,255,.18) 24px 25px),
+      var(--acero-claro);
+    position:relative;
+  }
+  .barra i{
+    position:absolute;inset:0 auto 0 0;display:block;
+    background:var(--color,var(--cinta));width:0;
+    transition:width .5s ease;
+  }
+  @media (prefers-reduced-motion:reduce){.barra i{transition:none}}
+
+  .vacio{
+    color:var(--grafito);border:1px dashed var(--linea);
+    border-radius:6px;padding:18px;text-align:center;
+  }
+
+  #estado{margin-top:16px;font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--grafito)}
+  #estado.error{color:var(--rojo-caja)}
+
+  footer{
+    max-width:1100px;margin:30px auto 0;padding:18px 24px 34px;
+    border-top:1px solid var(--linea);
+    color:var(--grafito);font-size:13px;
+    display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;
+  }
+  footer b{color:var(--cinta);font-weight:500}
+</style>
+</head>
+<body>
+
+<div class="cinta" aria-hidden="true"></div>
+
+<header>
+  <p class="eyebrow">Visión artificial · Grupo 3 · YOLOv8</p>
+  <h1>Detector de<br>herramientas <span class="fina">de taller</span></h1>
+  <p class="sub">Sube una foto de la caja de herramientas y el modelo marca cada
+  herramienta que reconoce, con su nivel de confianza.</p>
+</header>
+
+<main>
+  <section class="pegboard">
+    <!-- zona de soltar: el hueco de la herramienta que falta en el tablero -->
+    <div class="zona" id="zona" tabindex="0" role="button"
+         aria-label="Subir imagen: clic, arrastrar o pegar">
+      <svg width="210" height="92" viewBox="0 0 150 66" fill="none" aria-hidden="true">
+        <path d="M14 22 L14 10 L30 10 L30 22 L96 22 L96 14 C96 8 102 4 110 4
+                 C126 4 140 14 140 30 C140 46 126 58 110 58 C102 58 96 54 96 48
+                 L96 40 L30 40 L30 52 L14 52 L14 40 L6 34 Z"
+              stroke="#93a4b1" stroke-width="2.5" stroke-dasharray="7 6" stroke-linejoin="round"/>
+      </svg>
+      <strong>Suelta la foto aquí</strong>
+      <span>arrástrala, haz clic para buscarla, o pégala con <kbd>Ctrl</kbd>+<kbd>V</kbd></span>
+    </div>
+
+    <div class="controles">
+      <button class="btn" id="btnElegir">Elegir foto</button>
+      <label class="conf">Confianza mínima
+        <input type="range" id="conf" min="0.1" max="0.9" step="0.05" value="0.4">
+        <output id="confVal">0.40</output>
+      </label>
+      <input type="file" id="archivo" accept="image/*" hidden>
+    </div>
+
+    <p id="estado" role="status"></p>
+
+    <div id="resultados">
+      <figure class="marco">
+        <img id="imgSalida" alt="Foto con las herramientas detectadas marcadas">
+        <figcaption>
+          <span id="metaTiempo"></span>
+          <span id="metaRuta"></span>
+        </figcaption>
+      </figure>
+      <aside>
+        <h2 class="titulo-lista">Inventario detectado <small id="total"></small></h2>
+        <div id="lista"></div>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>Detección de herramientas manuales · caja desordenada, oclusión parcial</span>
+  <span>Meta del proyecto: <b>mAP@0.5 ≥ 0.75</b></span>
+</footer>
+
+<script>
+  const zona = document.getElementById('zona');
+  const archivo = document.getElementById('archivo');
+  const estado = document.getElementById('estado');
+  const resultados = document.getElementById('resultados');
+  const conf = document.getElementById('conf');
+  const confVal = document.getElementById('confVal');
+
+  // colores fijos por clase para las etiquetas (mismo orden que aparecen)
+  const paleta = ['#f2b807','#d1493f','#5aa9d6','#7dc47f','#c98bd9',
+                  '#e0985a','#6fd6c3','#d66f9e','#b3c65a','#8f9df0'];
+  const colorClase = {};
+  let nColores = 0;
+
+  conf.addEventListener('input', () => confVal.textContent = Number(conf.value).toFixed(2));
+
+  // las tres formas de entrar: clic, arrastrar y pegar
+  zona.addEventListener('click', () => archivo.click());
+  zona.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') archivo.click(); });
+  document.getElementById('btnElegir').addEventListener('click', () => archivo.click());
+  archivo.addEventListener('change', () => archivo.files[0] && detectar(archivo.files[0]));
+
+  ['dragover','dragenter'].forEach(ev => zona.addEventListener(ev, e => {
+    e.preventDefault(); zona.classList.add('encima');
+  }));
+  ['dragleave','drop'].forEach(ev => zona.addEventListener(ev, e => {
+    e.preventDefault(); zona.classList.remove('encima');
+  }));
+  zona.addEventListener('drop', e => {
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith('image/')) detectar(f);
+  });
+
+  document.addEventListener('paste', e => {
+    for (const item of e.clipboardData.items) {
+      if (item.type.startsWith('image/')) { detectar(item.getAsFile()); return; }
+    }
+  });
+
+  async function detectar(f) {
+    estado.className = '';
+    estado.textContent = 'Analizando la foto...';
+    const datos = new FormData();
+    datos.append('imagen', f);
+
+    try {
+      const r = await fetch(`/detectar?conf=${conf.value}`, { method: 'POST', body: datos });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'Error del servidor');
+      mostrar(j);
+    } catch (err) {
+      estado.className = 'error';
+      estado.textContent = 'No se pudo procesar: ' + err.message +
+        '. Revisa que el servidor esté corriendo (python app.py).';
+    }
+  }
+
+  function mostrar(j) {
+    estado.textContent = '';
+    document.getElementById('imgSalida').src = j.imagen;
+    document.getElementById('metaTiempo').textContent = `inferencia: ${j.tiempo_ms} ms`;
+    document.getElementById('metaRuta').textContent = `guardada en ${j.guardada_en}`;
+    document.getElementById('total').textContent =
+      j.detecciones.length === 1 ? '1 objeto' : `${j.detecciones.length} objetos`;
+
+    const lista = document.getElementById('lista');
+    lista.innerHTML = '';
+
+    if (!j.detecciones.length) {
+      lista.innerHTML = '<div class="vacio">No se detectó ninguna herramienta.<br>' +
+        'Prueba bajando la confianza mínima o con otra foto.</div>';
+    }
+
+    // una etiqueta de cajon por deteccion, ordenadas por confianza
+    j.detecciones.sort((a, b) => b.confianza - a.confianza).forEach(d => {
+      if (!(d.clase in colorClase)) colorClase[d.clase] = paleta[nColores++ % paleta.length];
+      const el = document.createElement('div');
+      el.className = 'etiqueta';
+      el.style.setProperty('--color', colorClase[d.clase]);
+      el.innerHTML = `
+        <div class="fila">
+          <span class="nombre">${d.clase}</span>
+          <span class="valor">${(d.confianza * 100).toFixed(0)}%</span>
+        </div>
+        <div class="barra"><i></i></div>`;
+      lista.appendChild(el);
+      requestAnimationFrame(() =>
+        el.querySelector('i').style.width = (d.confianza * 100) + '%');
+    });
+
+    resultados.classList.add('visible');
+  }
+</script>
+</body>
+</html>

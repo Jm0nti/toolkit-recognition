@@ -1,2 +1,20 @@
+# Entornos virtuales
+.venv/
 .toolkit-venv/
+
+# Cache de Python
+__pycache__/
+*.pyc
+
+# Generado por el pipeline
 data/augmented/
+runs/
+outputs/*
+!outputs/.gitkeep
+
+# Pesos base de YOLO (se descargan solos al entrenar)
+yolov8*.pt
+yolo11*.pt
+
+# Cosas del sistema
+.DS_Store

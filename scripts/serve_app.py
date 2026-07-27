@@ -28,9 +28,12 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
 from src.detection.detector import _detectar_dispositivo, _color_para_clase  # noqa: E402
-from src.paths import DETECTION_MODELS, PREDICTIONS_DIR, WEB_DIR  # noqa: E402
+from src.paths import DETECTION_MODELS, PREDICTIONS_DIR, RUNS_DIR, WEB_DIR  # noqa: E402
 
+# usa models/detection/best.pt si existe; si no, el best.pt del entrenamiento
 MODEL_PATH = str(DETECTION_MODELS / "best.pt")
+if not os.path.exists(MODEL_PATH):
+    MODEL_PATH = str(RUNS_DIR / "tools" / "weights" / "best.pt")
 SALIDA_DIR = str(PREDICTIONS_DIR)
 os.makedirs(SALIDA_DIR, exist_ok=True)
 

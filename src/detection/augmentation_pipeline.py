@@ -351,6 +351,7 @@ def main():
             str(_REPO / "data/raw/juanl"),
             str(_REPO / "data/raw/juanma"),
             str(_REPO / "data/raw/tiago"),
+            str(_REPO / "data/raw/jacob"),
         ]
         ndjson       = str(_REPO / "data/raw/unified.ndjson")   # NDJSON unificado
         output_dir   = str(_REPO / "data/augmented")            # carpeta de salida del dataset

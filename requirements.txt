@@ -3,10 +3,10 @@
 # Probado con Python 3.10 / 3.11
 # ============================================================
 
-# --- Deteccion (Modulo 2) ---
+# --- Deteccion (Modulo 3) ---
 ultralytics==8.3.40
 
-# --- Aumento de datos (Modulo 1) ---
+# --- Aumento de datos (Modulo 2) ---
 albumentations==1.4.18
 
 # --- Vision / numerico ---
@@ -30,7 +30,7 @@ tqdm==4.66.5
 PyYAML==6.0.2
 matplotlib==3.9.2
 
-# --- Frontend web (python app.py) ---
+# --- Frontend web (python scripts/serve_app.py) ---
 fastapi==0.115.5
 uvicorn==0.32.1
 python-multipart==0.0.17

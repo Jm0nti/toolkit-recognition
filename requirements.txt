@@ -24,3 +24,8 @@ torchvision==0.19.1
 tqdm==4.66.5
 PyYAML==6.0.2
 matplotlib==3.9.2
+
+# --- Frontend web (python app.py) ---
+fastapi==0.115.5
+uvicorn==0.32.1
+python-multipart==0.0.17

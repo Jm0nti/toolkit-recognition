@@ -1,7 +1,10 @@
+# Entornos virtuales
+.venv/
 .toolkit-venv/
+
+# Cache de Python
+__pycache__/
+*.pyc
+
+# Generado por el pipeline
 data/augmented/
-
-
-*.png
-*.jpg
-*.jpeg

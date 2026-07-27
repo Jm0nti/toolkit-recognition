@@ -47,8 +47,9 @@ def generar_data_yaml(augmented_dir, ruta_salida="data.yaml"):
     with open(ruta_classes, "r", encoding="utf-8") as fh:
         clases = [l.strip() for l in fh if l.strip()]
 
+    # Ruta relativa para que el data.yaml sirva en cualquier maquina del equipo
     contenido = (
-        f"path: {os.path.abspath(augmented_dir)}\n"
+        f"path: {augmented_dir}\n"
         f"train: images/train\n"
         f"val: images/val\n"
         f"test: images/test\n"

@@ -2,8 +2,8 @@
   "model": "color_hist_rf",
   "accuracy": 0.8767676767676768,
   "macro_f1": 0.8739790490938807,
-  "duracion_train_s": 11.23314881324768,
-  "duracion_pred_s": 0.7348964214324951,
+  "duracion_train_s": 4.9242260456085205,
+  "duracion_pred_s": 0.6147434711456299,
   "n_test": 495,
   "per_class": {
     "alicate": {

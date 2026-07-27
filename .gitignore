@@ -6,10 +6,10 @@
 __pycache__/
 *.pyc
 
-# Dataset raw + augmentado (imágenes)
-data/**/*.png
-data/**/*.jpg
-data/**/*.jpeg
+# Dataset augmentado (imágenes)
+data/augmented/**/*.png
+data/augmented/**/*.jpg
+data/augmented/**/*.jpeg
 
 # Salidas de entrenamiento YOLO
 # runs/  (omitido por ahora, incluir para informe)
@@ -32,5 +32,3 @@ yolov8n.pt
 # Data.yaml resuelto (auto-generado)
 .data_resuelto.yaml
 
-# Imágenes de rúbrica u otros PNGs sueltos en root
-Rúbrica VA.png

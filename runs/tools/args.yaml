@@ -11,8 +11,8 @@ save: true
 save_period: -1
 cache: true
 device: cuda
-workers: 8
-project: runs
+workers: 2
+project: C:\Users\Juan M\Documents\U\Semestre 2026-1\Vision Artificial\toolkit-img-recognition\runs
 name: tools
 exist_ok: true
 pretrained: true
@@ -103,4 +103,4 @@ erasing: 0.4
 crop_fraction: 1.0
 cfg: null
 tracker: botsort.yaml
-save_dir: runs\tools
+save_dir: C:\Users\Juan M\Documents\U\Semestre 2026-1\Vision Artificial\toolkit-img-recognition\runs\tools

@@ -2,8 +2,8 @@
   "model": "hog_svm",
   "accuracy": 0.8909090909090909,
   "macro_f1": 0.8866601977789527,
-  "duracion_train_s": 30.926287412643433,
-  "duracion_pred_s": 6.103661060333252,
+  "duracion_train_s": 15.130316257476807,
+  "duracion_pred_s": 6.035386800765991,
   "n_test": 495,
   "per_class": {
     "alicate": {

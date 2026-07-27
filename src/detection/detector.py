@@ -21,7 +21,8 @@ import numpy as np
 
 # Utilidades
 
-REPO_DIR = os.path.dirname(os.path.abspath(__file__))
+# Al vivir en src/detection/, la raíz del repo está DOS niveles arriba.
+REPO_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def _resolver_data(dataset_yaml):
@@ -71,11 +72,16 @@ def _color_para_clase(class_id):
 # ENTRENAMIENTO
 
 def train(dataset_yaml="data.yaml", model_size="n", epochs=100,
-          project="runs", name="tools", output_weights="models/best.pt"):
+          project=None, name="tools", output_weights=None):
     """
     Fine-tuning de YOLOv8 sobre el dataset. Devuelve un dict de metricas.
     Hiperparametros optimizados para RTX 4050 4GB VRAM + dataset pequeno.
     """
+    # Rutas por defecto ancladas a la raíz del repo (independientes del cwd).
+    if project is None:
+        project = os.path.join(REPO_DIR, "runs")
+    if output_weights is None:
+        output_weights = os.path.join(REPO_DIR, "models", "detection", "best.pt")
     from ultralytics import YOLO
 
     dataset_yaml = _resolver_data(dataset_yaml)
@@ -145,13 +151,16 @@ def train(dataset_yaml="data.yaml", model_size="n", epochs=100,
 # PREDICCION
 
 
-def predict(source, model_path="models/best.pt", conf=0.4, iou=0.5,
-            output_dir="outputs/predicciones"):
+def predict(source, model_path=None, conf=0.4, iou=0.5, output_dir=None):
     """
     Ejecuta prediccion sobre una imagen, array numpy o carpeta.
     Devuelve lista de dicts con class_id, class_name, confidence,
     bbox_xyxy (pixeles) y bbox_xywhn (YOLO normalizado).
     """
+    if model_path is None:
+        model_path = os.path.join(REPO_DIR, "models", "detection", "best.pt")
+    if output_dir is None:
+        output_dir = os.path.join(REPO_DIR, "outputs", "predicciones")
     from ultralytics import YOLO
 
     device = _detectar_dispositivo()
@@ -195,10 +204,12 @@ def predict(source, model_path="models/best.pt", conf=0.4, iou=0.5,
 
 # EVALUACION
 
-def evaluate(dataset_yaml="data.yaml", model_path="runs/tools/weights/best.pt", umbral=0.75):
+def evaluate(dataset_yaml="data.yaml", model_path=None, umbral=0.75):
     """
     Ejecuta YOLOv8 val sobre el split test e imprime metricas.
     """
+    if model_path is None:
+        model_path = os.path.join(REPO_DIR, "models", "detection", "best.pt")
     from ultralytics import YOLO
 
     dataset_yaml = _resolver_data(dataset_yaml)
@@ -241,7 +252,7 @@ def evaluate(dataset_yaml="data.yaml", model_path="runs/tools/weights/best.pt", 
 
     # Copiar los graficos (matriz de confusion, curvas) a outputs/metricas
     save_dir = str(getattr(metricas, "save_dir", ""))
-    destino  = "outputs/metricas"
+    destino  = os.path.join(REPO_DIR, "outputs", "metricas")
     os.makedirs(destino, exist_ok=True)
     if save_dir and os.path.isdir(save_dir):
         for f in os.listdir(save_dir):
@@ -272,13 +283,13 @@ def main():
 
     p_pred = sub.add_parser("predict", help="Predecir sobre imagen/carpeta.")
     p_pred.add_argument("--source",     required=True)
-    p_pred.add_argument("--model",      default="runs/tools/weights/best.pt")
+    p_pred.add_argument("--model",      default=None)
     p_pred.add_argument("--conf",       type=float, default=0.4)
-    p_pred.add_argument("--output_dir", default="outputs/predicciones")
+    p_pred.add_argument("--output_dir", default=None)
 
     p_eval = sub.add_parser("evaluate", help="Evaluar sobre split test.")
     p_eval.add_argument("--data",  default="data.yaml")
-    p_eval.add_argument("--model", default="runs/tools/weights/best.pt")
+    p_eval.add_argument("--model", default=None)
 
     args = parser.parse_args()
 

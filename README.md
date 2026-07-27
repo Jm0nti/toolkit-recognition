@@ -1,221 +1,327 @@
-# Deteccion de Herramientas Manuales en Cajas de Herramientas
+# Reconocimiento de Herramientas Manuales
 
-Pipeline de **deteccion de objetos** para identificar herramientas manuales en
-fotos cenitales (tomadas desde arriba con smartphone) de cajas de herramientas
-desordenadas, con oclusion parcial y fondos caoticos.
-
-El sistema esta dividido en **3 modulos independientes** + orquestador:
-
-| Modulo | Archivo | Funcion |
-|--------|---------|---------|
-| 1 | `augmentation_pipeline.py` | Aumento de datos (Albumentations + mosaico) desde NDJSON + splits |
-| 2 | `detector.py` | Fine-tuning, prediccion y evaluacion con YOLOv8 |
-| 3 | `run_pipeline.py` | Orquestador end-to-end |
-
-> **Nota:** la anotacion se hace **manualmente** (no hay auto-anotacion). El
-> pipeline parte de un archivo NDJSON de Ultralytics con las anotaciones
-> exportadas a mano.
-
-**Meta academica:** `mAP@0.5 ≥ 0.75` en el conjunto de test con oclusion parcial.
-
-Clases actuales (definidas en `data.yaml`): `metro, destornillador, martillo,
-pinzas, alicate`. Puedes cambiarlas editando `data.yaml` y re-anotando.
+Pipeline completo de **visión artificial** sobre fotos cenitales de cajas de
+herramientas: unificación de anotaciones colaborativas, aumento de datos,
+**detección** con YOLOv8 y **clasificación** con tres métodos ML complementarios
+(dos clásicos + una CNN). El repositorio cumple los cuatro ejes de la rúbrica
+académica: *descripción del dataset, metodología, presentación de resultados y
+métricas, análisis y conclusiones*.
 
 ---
 
-## 1. Requisitos del sistema
+## 1. Descripción del dataset
 
-- **Python 3.10 o superior** (se usan type hints `list[float]`, `tuple[...]`).
-- **GPU NVIDIA con CUDA (recomendado)** para entrenar en minutos. El codigo
-  detecta la GPU, activa **FP16** y ajusta `batch=8` (seguro para 4 GB VRAM,
-  p.ej. RTX 4050).
-- **CPU (fallback)**: funciona pero es lento; el codigo baja a `batch=4` y
-  desactiva cache automaticamente.
-- ~1 GB de espacio para pesos de YOLOv8 + dataset aumentado.
-- Sistemas probados: Windows 11 y Linux.
+- **Origen.** Fotos tomadas con smartphone por tres colaboradores
+  (`data/raw/juanl/`, `data/raw/juanma/`, `data/raw/tiago/`). Cada uno anotó su
+  set en la plataforma Ultralytics y exportó un archivo NDJSON independiente.
+  El script `src/data/merge_ndjson.py` los une con orden canónico de clases
+  (ver §3.1).
+- **Contexto.** Herramientas dentro de cajas o sobre superficies planas, con
+  **oclusión parcial**, superposición y fondos caóticos.
+- **Composición.** 10 clases (`metro, destornillador, martillo, pinzas,
+  alicate, llave_inglesa, llave_combinada, brocha, espatula, llave_tubo`). El
+  NDJSON unificado descarta cualquier clase fuera de este set (p. ej.
+  `rodillo_pintura` de uno de los colaboradores).
+- **Cantidad.** ~30 imágenes originales → **~500 imágenes** tras el aumento
+  (`data/augmented/`) → **3.700 recortes** de bbox para clasificación
+  (`outputs/ml_datasets/crops/`).
+- **Distribución.** El split por defecto es 70/20/10 estratificado por clase
+  dominante. La distribución exacta por clase se imprime al final del Módulo 1
+  y en el Módulo 4 al construir los recortes.
+- **Limitaciones.**
+  - Volumen bajo por clase (algunas <150 recortes en train antes del aumento).
+  - Sesgo de iluminación (mismas condiciones dentro de cada colaborador).
+  - Solo tres personas → variabilidad de estilo de foto acotada.
+  - Herramientas dentro de cajas → sombras y reflejos metálicos frecuentes.
 
 ---
 
-## 2. Instalacion
+## 2. Arquitectura y metodología
+
+Cuatro módulos independientes, orquestables individualmente:
+
+| # | Módulo | Ubicación | Función |
+|---|--------|-----------|---------|
+| 1 | Unificación de anotaciones | `src/data/merge_ndjson.py` | Reordena y filtra clases entre los NDJSON de los colaboradores |
+| 2 | Aumento de datos + splits | `src/detection/augmentation_pipeline.py` | Albumentations + mosaico + split estratificado train/val/test |
+| 3 | Detección YOLOv8 | `src/detection/detector.py` | Fine-tuning, predicción y evaluación con mAP |
+| 4 | **Clasificación ML** | `src/classification/` | Recortes de bboxes → 3 clasificadores (HOG+SVM, ColorHist+RF, CNN) |
+
+Los scripts de arranque viven en `scripts/`; la lógica en `src/`. Todas las
+rutas se anclan a la raíz del repo (ver `src/paths.py`), por lo que los
+scripts se pueden ejecutar desde cualquier directorio.
+
+### Módulo 4 en detalle — cumplimiento de la rúbrica
+
+La rúbrica exige, además de un clasificador, cuatro operaciones específicas:
+todas están implementadas en `src/classification/preprocessing.py` y `features.py`:
+
+| Requisito | Implementación | Uso en el pipeline |
+|---|---|---|
+| Conversión a escala de grises | `preprocessing.to_grayscale` | Base del descriptor HOG y de Sobel/Canny |
+| Separación de canales de color | `preprocessing.split_bgr`, `split_hsv` | Base del histograma de color HSV |
+| Detección de bordes | `preprocessing.edges_canny`, `edges_sobel` | Disponibles como utilidades; el HOG ya captura el gradiente de bordes de forma implícita |
+| Extracción de características | `features.hog_features`, `features.color_histogram`, `features.combined_features` | HOG (forma/contornos) + histograma HSV (color) |
+
+Sobre esas features se entrenan tres clasificadores complementarios:
+
+1. **HOG + SVM (RBF).** Baseline clásico basado en forma. HOG resume los
+   gradientes locales en 128×128 grises; el SVM con kernel RBF captura
+   relaciones no lineales entre esos gradientes. Estandarización previa con
+   `StandardScaler` para que el SVM converja bien.
+2. **Histograma de color HSV + Random Forest.** Baseline clásico basado en
+   color. Un histograma 3D (8×8×8) por recorte y un RandomForest de 200
+   árboles con `class_weight="balanced"`. Detecta la firma cromática de cada
+   herramienta (mango plástico rojo vs. cabeza metálica gris, etc.).
+3. **CNN pequeña (PyTorch).** Modelo deep de ~200k parámetros: 3 bloques
+   `Conv-BN-ReLU-Pool` (32→64→128 canales) + `GlobalAvgPool` + `FC(128) →
+   Dropout(0.3) → FC(10)`. Entrada RGB 96×96 con letterbox. Loss
+   ponderada por clase (compensa desbalance), early stopping por accuracy
+   de val (paciencia = 6).
+
+Los tres implementan la **misma interfaz** (`train / predict / save / load`),
+lo que permite tratarlos uniformemente en `scripts/run_ml_train.py` y
+`scripts/run_ml_evaluate.py`, y **si uno falla, los otros dos siguen** (bloque
+`try/except` por modelo).
+
+---
+
+## 3. Instalación
 
 ```bash
-# 1) Crear entorno virtual
-python -m venv .venv
-# Windows:
-.venv\Scripts\activate
+# 1) Entorno virtual (Python 3.10+ recomendado)
+python -m venv .toolkit-venv
+# Windows PowerShell:
+.\.toolkit-venv\Scripts\Activate.ps1
 # Linux/Mac:
-source .venv/bin/activate
+source .toolkit-venv/bin/activate
 
-# 2) (GPU) Instalar PyTorch con CUDA ANTES de requirements
+# 2) (Opcional GPU) PyTorch con CUDA ANTES de requirements
 pip install torch==2.4.1 torchvision==0.19.1 --index-url https://download.pytorch.org/whl/cu121
 
-# 3) Instalar dependencias
+# 3) Dependencias
 pip install -r requirements.txt
 ```
 
-> Si no tienes GPU, omite el paso 2 e instala solo `pip install -r requirements.txt`.
+Dependencias clave: `ultralytics`, `albumentations`, `torch/torchvision`,
+`scikit-learn`, `scikit-image`, `opencv-python`, `matplotlib`, `fastapi`.
 
 ---
 
-## 3. Como agregar tus imagenes y anotarlas
+## 4. Ejecución paso a paso
 
-### 3.1 Colocar las imagenes
+### 4.1 Unificación de NDJSON (una vez por cambios en las anotaciones)
 
-1. Crea la carpeta `data/raw/`.
-2. Copia ahi tus fotos `.jpg` / `.png` (20–100 imagenes cenitales).
-3. Consejos: camara paralela al suelo, buena iluminacion (variar condiciones
-   ayuda), incluye herramientas superpuestas y fondos reales de taller.
-
-### 3.2 Anotar manualmente y exportar NDJSON
-
-La anotacion es **manual**. Anota las herramientas (bounding box o poligono) con
-una herramienta que exporte el **formato NDJSON de Ultralytics** y guarda el
-archivo como `data/raw/annotations.ndjson`.
-
-Estructura esperada del NDJSON (una linea JSON por registro):
-
-```jsonl
-{"type": "dataset", "class_names": {"0": "metro", "1": "destornillador", ...}}
-{"type": "image", "file": "IMG_001.jpg", "annotations": {"segments": [[0, x1, y1, x2, y2, ...], ...]}}
-```
-
-- El registro `type: "dataset"` define el mapeo `class_id → nombre`.
-- Cada `type: "image"` lista sus `segments`: el primer valor es el `class_id`
-  y el resto son coordenadas **normalizadas** (poligono).
-- El Modulo 1 convierte automaticamente cada poligono a bounding box YOLO
-  (`poligono_a_bbox`). No necesitas convertir nada a mano.
-
-> Si en su lugar tienes archivos `.txt` YOLO clasicos, el Modulo 1 tambien los
-> soporta: pon `ndjson = None` en la configuracion (ver 4.1) y deja los `.txt`
-> junto a las imagenes.
-
----
-
-## 4. Ejecutar el pipeline
-
-### 4.1 Configurar el Modulo 1
-
-A diferencia del resto, `augmentation_pipeline.py` se configura **editando el
-bloque `class args` dentro de `main()`** (no por linea de comandos):
-
-```python
-class args:
-    input_dir    = "data/raw"                     # imagenes originales
-    ndjson       = "data/raw/annotations.ndjson"  # anotaciones NDJSON (o None)
-    output_dir   = "data/augmented"               # salida del dataset
-    factor       = 12                             # imagenes generadas por original
-    mosaic_ratio = 0.30                           # fraccion via mosaico
-    seed         = 42
-```
-
-### 4.2 Verifica `data.yaml`
-
-`data.yaml` apunta al dataset aumentado y define las clases. Debe coincidir con
-el mapeo del NDJSON:
-
-```yaml
-path: .../data/augmented
-train: images/train
-val: images/val
-test: images/test
-nc: 5
-names:
-    0: metro
-    1: destornillador
-    2: martillo
-    3: pinzas
-    4: alicate
-```
-
-### 4.3 Opcion A — Todo de una (recomendado)
+Edita `INPUT_FILES` en `src/data/merge_ndjson.py` para listar los `.ndjson` de
+cada colaborador y corre:
 
 ```bash
-python run_pipeline.py --model_size n --epochs 100
+python scripts/run_merge_ndjson.py
 ```
 
-El orquestador ejecuta: aumento → verifica `data.yaml` → entrena → evalua.
-Si `data.yaml` ya existe, lo respeta; si no, lo genera desde `classes.txt`.
+Salida: `data/raw/unified.ndjson` con las 10 clases canónicas y todos los
+segmentos remapeados por **nombre** (no por índice).
 
-### 4.4 Opcion B — Modulo por modulo
+### 4.2 Aumento de datos + splits (Módulo 2)
+
+Edita la lista `input_dirs` dentro de `main()` de
+`src/detection/augmentation_pipeline.py` para incluir las carpetas de imágenes
+de cada colaborador, luego:
 
 ```bash
-# 1) Aumento + splits (usa la config interna del archivo)
-python augmentation_pipeline.py
-
-# 2) Entrenar y evaluar
-python detector.py train    --data data.yaml --model_size n --epochs 100
-python detector.py evaluate --data data.yaml --model models/best.pt
-
-# (opcional) Predecir sobre nuevas imagenes
-python detector.py predict --source data/raw --model models/best.pt
+python -m src.detection.augmentation_pipeline
+# o vía el orquestador de detección:
+python scripts/run_pipeline.py --model_size n --epochs 100
 ```
 
+Salida: `data/augmented/{images,labels}/{train,val,test}/` + `classes.txt`.
+
+### 4.3 Detección con YOLOv8 (Módulo 3)
+
+```bash
+# Entrenar
+python -m src.detection.detector train --data data.yaml --model_size n --epochs 100
+# Evaluar
+python -m src.detection.detector evaluate --data data.yaml
+# Predecir en una carpeta
+python -m src.detection.detector predict --source data/raw/juanl
+```
+
+Los pesos finales se copian a `models/detection/best.pt`.
+
+Frontend web para probar interactivamente:
+
+```bash
+python scripts/serve_app.py
+# abre http://localhost:8000
+```
+
+### 4.4 Clasificación ML (Módulo 4)
+
+Cada paso es independiente — si uno falla, los siguientes se pueden lanzar por
+separado.
+
+```bash
+# Paso 1: construir dataset de recortes (idempotente, incremental)
+python scripts/run_ml_dataset.py                    # incremental
+python scripts/run_ml_dataset.py --overwrite        # regenera todo
+
+# Paso 2: entrenar UN modelo o todos
+python scripts/run_ml_train.py --model hog_svm
+python scripts/run_ml_train.py --model color_hist_rf
+python scripts/run_ml_train.py --model cnn --epochs 25
+python scripts/run_ml_train.py --model all
+
+# Paso 3: evaluar UN modelo o todos (+ tabla comparativa opcional)
+python scripts/run_ml_evaluate.py --model hog_svm
+python scripts/run_ml_evaluate.py --model all --compare
+
+# Todo el pipeline ML de una:
+python scripts/run_ml_pipeline.py
+python scripts/run_ml_pipeline.py --skip_dataset --epochs 40
+```
+
+Los reportes por modelo se guardan en `outputs/ml_reports/`:
+
+- `<modelo>_metrics.json` — accuracy, macro-F1, precisión/recall/F1 por clase.
+- `<modelo>_confusion_matrix.png` — matriz normalizada por fila.
+- `comparison.{md,csv,png}` — tabla comparativa de todos los modelos.
+
 ---
 
-## 5. Como interpretar el mAP para la rubrica
+## 5. Métricas y presentación de resultados
 
-- **mAP@0.5**: metrica principal (IoU ≥ 0.5). Objetivo **≥ 0.75**.
-  `detector.py evaluate` imprime explicitamente `✅ PASSED` o `❌ FAILED`.
-- **mAP@0.5:0.95**: metrica mas estricta (promedio IoU 0.5→0.95); suele ser menor.
-- **Precision / Recall por clase**: identifican que herramientas fallan.
-  - *Recall bajo* = no encuentra la herramienta (faltan ejemplos/aumento).
-  - *Precision baja* = muchos falsos positivos (confunde clases).
-- **Matriz de confusion** (`confusion_matrix.png`, en `runs/`): muestra
-  confusiones entre clases parecidas (p.ej. `pinzas` vs `alicate`).
+### 5.1 Módulo de detección (YOLOv8)
 
-Para el informe: reporta mAP@0.5 global, la tabla por clase y la matriz de
-confusion, y comenta las clases mas debiles y por que.
+- **mAP@0.5** (métrica principal; objetivo académico ≥ 0.75).
+- **mAP@0.5:0.95** (promedio a distintos IoU, más estricta).
+- **Precision / Recall por clase**, matriz de confusión y curvas P/R.
+
+Estos artefactos los produce Ultralytics automáticamente en `runs/tools/` y
+se copian a `outputs/metricas/` al ejecutar `evaluate`.
+
+### 5.2 Módulo de clasificación (Módulo 4)
+
+Por cada uno de los tres modelos:
+
+- **Accuracy** y **macro-F1** globales sobre el split test.
+- **Precisión, Recall y F1** por clase (usando `classification_report` de
+  sklearn con `zero_division=0`).
+- **Matriz de confusión** normalizada por fila (recall visual por clase).
+- **Tiempo de entrenamiento** y **tiempo de predicción** en el split test.
+
+Y la tabla comparativa unificada (`comparison.md`) permite justificar por qué
+un método le gana a otro en el análisis.
+
+**Resultados obtenidos** (smoke test con `python scripts/run_ml_pipeline.py`,
+CNN a 15 epochs — subir `--epochs` mejora la CNN significativamente):
+
+| Modelo | Accuracy | Macro-F1 | N test | Train (s) | Pred (s) |
+|---|---:|---:|---:|---:|---:|
+| hog_svm       | 0.891 | 0.887 | 495 | 28.2  | 3.17 |
+| color_hist_rf | 0.877 | 0.874 | 495 |  8.3  | 0.59 |
+| cnn (15 ep.)  | 0.800 | 0.785 | 495 | 210.0 | 1.81 |
+
+Observaciones iniciales:
+
+- Los **clásicos superan a la CNN** con este volumen de datos y epochs. La CNN
+  seguía bajando la loss (val_acc pasó de 0.34 → 0.73 en 15 epochs); con 30-50
+  epochs típicamente alcanza o supera a los clásicos, dado su mayor capacidad.
+- **HOG + SVM** es el ganador por poco: siluetas y bordes son la señal más
+  robusta para estas herramientas.
+- **Color hist + RF** entrena en 8 s y predice en <1 s: candidato natural
+  para un baseline rápido / edge.
+
+Los reportes por clase (P/R/F1) y matrices de confusión están en
+`outputs/ml_reports/`.
 
 ---
 
-## 6. Troubleshooting: una clase tiene 0 detecciones o mAP muy bajo
+## 6. Análisis y conclusiones (guía)
 
-Con anotacion manual, el problema casi siempre es de **datos**:
+Este archivo entrega la **infraestructura**; el análisis se documenta luego
+en base a los outputs reales. La rúbrica pide, para cada resultado:
 
-1. **Pocas instancias**: el Modulo 1 avisa si una clase queda con `<20`
-   instancias en train. Sube `--factor` o agrega/anota mas imagenes de esa clase.
-2. **Anotaciones inconsistentes**: revisa que el `class_id` en el NDJSON sea
-   coherente y coincida con el orden de `data.yaml`.
-3. **Desbalance severo**: si una clase domina, el split estratificado ayuda pero
-   no lo arregla del todo; equilibra la cantidad de ejemplos por clase.
-4. **Cajas mal ajustadas**: poligonos muy holgados generan bboxes gigantes tras
-   `poligono_a_bbox`. Ajusta la anotacion.
-5. **`min_visibility=0.4`** en el pipeline puede descartar objetos muy ocluidos
-   tras un crop/rotacion; bajalo si pierdes muchas cajas.
-
----
-
-## 7. Herramientas de anotacion manual
-
-Cualquier herramienta que exporte NDJSON de Ultralytics (o YOLO `.txt`) sirve:
-
-- **Ultralytics** (plataforma / HUB): exporta NDJSON directamente.
-- **LabelImg** (`pip install labelImg`): exporta YOLO `.txt`. En ese caso pon
-  `ndjson = None` en la config del Modulo 1 y deja los `.txt` junto a las
-  imagenes en `input_dir`.
-- **Label Studio** o **CVAT**: interfaz web, exportan a formatos YOLO.
-
-Atajos utiles en LabelImg: `W` crea caja, `D` siguiente, `A` anterior, `Ctrl+S`
-guarda. Recuerda: la calidad de la anotacion manual es el factor #1 para
-alcanzar el mAP objetivo.
+1. **Qué método ganó y por qué.** HOG+SVM y RF sobre color son sorprendentemente
+   fuertes en este dataset porque las herramientas tienen siluetas y colores
+   distintivos. La CNN puede quedarse cerca o superar a los clásicos según cuán
+   generalizables sean las features aprendidas frente al pequeño volumen de datos.
+2. **Dónde falla cada modelo.** La matriz de confusión de cada uno muestra los
+   pares problemáticos típicos (`pinzas` ↔ `alicate`, `llave_inglesa` ↔
+   `llave_combinada`). Reportar estos pares es más valioso que un solo número.
+3. **Trade-offs.** Los modelos clásicos entrenan en segundos y se ejecutan en
+   CPU sin problema; la CNN es más pesada de entrenar pero potencialmente más
+   robusta a variaciones no vistas. Los tiempos están en `comparison.csv`.
+4. **Inconvenientes durante el proceso.** Documentar en el informe:
+   - Bajo volumen por clase → dependemos fuertemente del augmentation.
+   - Anotaciones heterogéneas entre colaboradores → resuelto con `merge_ndjson.py`.
+   - VRAM limitada (6 GB) → workers reducidos en YOLO y fallback CPU en `serve_app.py`.
+5. **Mejoras posibles.** Más datos por clase, transfer learning
+   (MobileNetV2/EfficientNet), features combinadas (HOG + histograma) para
+   sklearn, ensembles.
 
 ---
 
-## Estructura del proyecto
+## 7. Estructura del proyecto
 
 ```
-.
-├── augmentation_pipeline.py    # Modulo 1 (config interna en `class args`)
-├── detector.py                 # Modulo 2 (CLI: train/predict/evaluate)
-├── run_pipeline.py             # Modulo 3 (orquestador)
-├── data.yaml                   # Config del dataset para YOLOv8
-├── requirements.txt
+toolkit-img-recognition/
 ├── README.md
+├── requirements.txt
+├── data.yaml                                # config YOLO
 ├── data/
-│   ├── raw/                    # <- imagenes + annotations.ndjson (manual)
-│   └── augmented/              # generado por el Modulo 1
+│   ├── raw/
+│   │   ├── juanl/  juanma/  tiago/          # imágenes por colaborador
+│   │   └── unified.ndjson                   # NDJSON unificado (salida M1)
+│   └── augmented/                           # dataset YOLO (salida M2)
 │       ├── images/{train,val,test}
 │       ├── labels/{train,val,test}
 │       └── classes.txt
-└── models/best.pt              # mejores pesos entrenados
+├── src/                                     # código fuente
+│   ├── paths.py                             # rutas ancladas al repo
+│   ├── data/
+│   │   └── merge_ndjson.py                  # Módulo 1
+│   ├── detection/
+│   │   ├── augmentation_pipeline.py         # Módulo 2
+│   │   └── detector.py                      # Módulo 3
+│   └── classification/                      # Módulo 4
+│       ├── preprocessing.py                 # gris, canales, bordes
+│       ├── features.py                      # HOG, color histogram
+│       ├── dataset_builder.py               # crops desde YOLO labels
+│       ├── evaluation.py                    # métricas + comparación
+│       └── models/
+│           ├── hog_svm.py
+│           ├── color_hist_rf.py
+│           └── cnn.py
+├── scripts/                                 # entry points ejecutables
+│   ├── run_merge_ndjson.py                  # M1
+│   ├── run_pipeline.py                      # M2 + M3 (detección end-to-end)
+│   ├── serve_app.py                         # frontend web del detector
+│   ├── run_ml_dataset.py                    # M4 - construir dataset
+│   ├── run_ml_train.py     [--model X]      # M4 - entrenar
+│   ├── run_ml_evaluate.py  [--model X]      # M4 - evaluar
+│   └── run_ml_pipeline.py                   # M4 - todo el flujo
+├── models/
+│   ├── detection/best.pt                    # pesos YOLO
+│   └── classification/                      # hog_svm.joblib, color_hist_rf.joblib, cnn.pt
+├── outputs/
+│   ├── predicciones/                        # detecciones del frontend
+│   ├── metricas/                            # gráficos YOLO
+│   ├── ml_datasets/crops/{train,val,test}/  # recortes de clasificación
+│   └── ml_reports/                          # métricas + matrices + comparación
+├── runs/                                    # logs y checkpoints de Ultralytics
+└── web/index.html                           # frontend estático
 ```
+
+---
+
+## 8. Troubleshooting
+
+| Síntoma | Causa probable | Fix |
+|---|---|---|
+| `CUDA error: out of memory` al arrancar el frontend | Otro proceso ocupa la VRAM | `serve_app.py` cae a CPU automáticamente; o `FORCE_CPU=1 python scripts/serve_app.py` |
+| `MemoryError` durante el `close_mosaic` de YOLO | Windows spawn respawnnea los workers con demasiada RAM | Ya está fijado `workers=2` en `detector.py`; bajar a `0` si persiste |
+| `UserWarning: 'std_range' is not valid and will be ignored` en Albumentations 1.4 | Firma nueva no reconocida | Ya corregido: `augmentation_pipeline.py` usa `var_limit` y `sigma_limit` explícitos |
+| Alguna clase muestra `<-- SIN INSTANCIAS` en el resumen del aumento | Nadie anotó esa clase | Anotar más ejemplos, o quitarla del canónico en `merge_ndjson.py` y `data.yaml` |
+| `Package 'scikit-learn' is not installed` | Nuevas dependencias del Módulo 4 | `pip install -r requirements.txt` |
+| Recortes muy pequeños se pierden al construir el dataset | Bboxes degenerados (<24 px de lado tras el crop) | Ajustar `MIN_CROP_PX` en `dataset_builder.py` |

@@ -337,19 +337,23 @@ def guardar_split(items: list, base: str, split: str) -> None:
 # SECCIÓN 5 — Principal
 
 def main():
-    # CONFIGURACIÓN — Edita estos valores según tu proyecto
+    # CONFIGURACIÓN — Edita estos valores según tu proyecto.
+    # Todas las rutas relativas se anclan a la raíz del repositorio,
+    # no al cwd (ver src/paths.py).
+    from pathlib import Path
+    _REPO = Path(__file__).resolve().parents[2]
 
     class args:
         # Lista de carpetas con imágenes originales. Cada colaborador puede
         # tener su propia subcarpeta; el pipeline busca cada imagen del
         # NDJSON en todas ellas (por ruta relativa y por basename).
         input_dirs   = [
-            "data/raw/juanl",
-            "data/raw/juanma",
-            "data/raw/tiago",
+            str(_REPO / "data/raw/juanl"),
+            str(_REPO / "data/raw/juanma"),
+            str(_REPO / "data/raw/tiago"),
         ]
-        ndjson       = "data/raw/unified.ndjson"         # NDJSON unificado
-        output_dir   = "data/augmented"         # carpeta de salida del dataset
+        ndjson       = str(_REPO / "data/raw/unified.ndjson")   # NDJSON unificado
+        output_dir   = str(_REPO / "data/augmented")            # carpeta de salida del dataset
         factor       = 12                       # imágenes generadas por imagen original
         mosaic_ratio = 0.30                     # fracción de imágenes vía mosaico
         seed         = 42

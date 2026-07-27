@@ -4,7 +4,7 @@
 Frontend web del detector.
 
 Se prende con:
-    python app.py
+    python scripts/serve_app.py
 y se abre http://localhost:8000 en el navegador.
 """
 
@@ -12,7 +12,9 @@ import base64
 import glob
 import json
 import os
+import sys
 import time
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -21,10 +23,15 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 
-from detector import _detectar_dispositivo, _color_para_clase
+# Añade la raíz del repo al sys.path para que 'src' sea importable.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_REPO_ROOT))
 
-MODEL_PATH = "runs/tools/weights/best.pt"
-SALIDA_DIR = "outputs/predicciones"
+from src.detection.detector import _detectar_dispositivo, _color_para_clase  # noqa: E402
+from src.paths import DETECTION_MODELS, PREDICTIONS_DIR, WEB_DIR  # noqa: E402
+
+MODEL_PATH = str(DETECTION_MODELS / "best.pt")
+SALIDA_DIR = str(PREDICTIONS_DIR)
 os.makedirs(SALIDA_DIR, exist_ok=True)
 
 app = FastAPI(title="Detector de herramientas")
@@ -77,7 +84,7 @@ def cargar_modelo():
 
 @app.get("/")
 def inicio():
-    return FileResponse(os.path.join("web", "index.html"))
+    return FileResponse(str(WEB_DIR / "index.html"))
 
 
 @app.post("/detectar")

@@ -6,7 +6,31 @@
 __pycache__/
 *.pyc
 
-
+# Dataset raw + augmentado (imágenes)
 data/**/*.png
 data/**/*.jpg
 data/**/*.jpeg
+
+# Salidas de entrenamiento YOLO
+runs/
+
+# Artefactos de clasificación (dataset y reportes se regeneran)
+outputs/ml_datasets/
+outputs/ml_reports/
+outputs/predicciones/
+outputs/metricas/
+
+# Modelos entrenados (se regeneran)
+models/detection/*.pt
+models/classification/*.joblib
+models/classification/*.pt
+
+# Pesos base preentrenados descargados por Ultralytics
+yolo11n.pt
+yolov8n.pt
+
+# Data.yaml resuelto (auto-generado)
+.data_resuelto.yaml
+
+# Imágenes de rúbrica u otros PNGs sueltos en root
+Rúbrica VA.png

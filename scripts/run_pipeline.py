@@ -22,9 +22,15 @@ configuran DENTRO de augmentation_pipeline.py (bloque `class args`).
 
 import argparse
 import os
+import sys
+from pathlib import Path
 
-import augmentation_pipeline
-import detector
+# Añade la raíz del repo al sys.path para que 'src' sea importable.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_REPO_ROOT))
+
+from src.detection import augmentation_pipeline, detector  # noqa: E402
+from src.paths import DATA_AUG_DIR, DATA_YAML, DETECTION_MODELS  # noqa: E402
 
 
 def generar_data_yaml(augmented_dir, ruta_salida="data.yaml"):
@@ -64,9 +70,9 @@ def generar_data_yaml(augmented_dir, ruta_salida="data.yaml"):
 
 def main():
     parser = argparse.ArgumentParser(description="Orquestador del pipeline.")
-    parser.add_argument("--augmented_dir", default="data/augmented",
+    parser.add_argument("--augmented_dir", default=str(DATA_AUG_DIR),
                         help="Carpeta del dataset aumentado (salida del Modulo 1).")
-    parser.add_argument("--data", default="data.yaml",
+    parser.add_argument("--data", default=str(DATA_YAML),
                         help="Ruta al data.yaml.")
     parser.add_argument("--model_size", default="n", choices=["n", "s"])
     parser.add_argument("--epochs", type=int, default=100)
@@ -97,7 +103,8 @@ def main():
                                     epochs=args.epochs)
 
     print("\n########## PASO 4: EVALUACION ##########")
-    metricas_eval = detector.evaluate(data_yaml, model_path="models/best.pt")
+    metricas_eval = detector.evaluate(data_yaml,
+                                       model_path=str(DETECTION_MODELS / "best.pt"))
 
     print("\n########## RESUMEN FINAL ##########")
     print(f"Entrenamiento: {metricas_train}")

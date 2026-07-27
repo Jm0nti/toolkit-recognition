@@ -116,9 +116,11 @@ def process_file(path: Path, seen_files: dict[str, str]) -> list[dict]:
 
 
 def main() -> None:
-    script_dir = Path(__file__).resolve().parent
-    inputs = [(script_dir / p).resolve() for p in INPUT_FILES]
-    output = (script_dir / OUTPUT_FILE).resolve()
+    # Rutas relativas se resuelven contra la raíz del repo (dos niveles arriba
+    # de src/data/), no contra el cwd.
+    repo_root = Path(__file__).resolve().parents[2]
+    inputs = [(repo_root / p).resolve() for p in INPUT_FILES]
+    output = (repo_root / OUTPUT_FILE).resolve()
 
     missing = [p for p in inputs if not p.is_file()]
     if missing:

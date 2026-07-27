@@ -20,6 +20,11 @@ Pillow==10.4.0
 torch==2.4.1
 torchvision==0.19.1
 
+# --- Clasificacion ML (Modulo 4) ---
+scikit-learn==1.5.2
+scikit-image==0.24.0
+joblib==1.4.2
+
 # --- Utilidades ---
 tqdm==4.66.5
 PyYAML==6.0.2

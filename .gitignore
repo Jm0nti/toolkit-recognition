@@ -32,3 +32,6 @@ yolov8n.pt
 # Data.yaml resuelto (auto-generado)
 .data_resuelto.yaml
 
+
+# Caches de YOLO (se regeneran al entrenar)
+*.cache

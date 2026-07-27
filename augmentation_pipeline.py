@@ -74,7 +74,7 @@ def escribir_yolo_txt(ruta_txt: str, bboxes: list, labels: list) -> None:
     """Escribe bboxes YOLO de detección en un .txt."""
     with open(ruta_txt, "w", encoding="utf-8") as fh:
         for (cx, cy, w, h), cid in zip(bboxes, labels):
-            fh.write(f"{cid} {cx:.6f} {cy:.6f} {w:.6f} {h:.6f}\n")
+            fh.write(f"{int(cid)} {cx:.6f} {cy:.6f} {w:.6f} {h:.6f}\n")
 
 # Carga desde NDJSON
 
@@ -117,8 +117,22 @@ def cargar_ndjson(ruta_ndjson: str) -> tuple[dict, dict]:
     return meta, mapa_imagen
 
 
+def _buscar_imagen(nombre_archivo: str, carpetas: list[str]) -> str | None:
+    """Busca una imagen (por ruta relativa o basename) dentro de una lista de carpetas."""
+    basename = os.path.basename(nombre_archivo)
+    for carpeta in carpetas:
+        candidatos = [
+            os.path.join(carpeta, nombre_archivo),
+            os.path.join(carpeta, basename),
+        ]
+        for ruta in candidatos:
+            if os.path.exists(ruta):
+                return ruta
+    return None
+
+
 def listar_pares_ndjson(
-    carpeta_imgs: str,
+    carpetas_imgs: list[str] | str,
     mapa_imagen: dict,
     seg_mode: bool = False,
 ) -> list[tuple[str, str, list, list]]:
@@ -126,22 +140,23 @@ def listar_pares_ndjson(
     Construye la lista de pares (ruta_img, base, bboxes, labels)
     usando las anotaciones del NDJSON.
 
+    `carpetas_imgs` puede ser una ruta (str) o una lista de rutas. La imagen
+    se busca en cada carpeta por ruta relativa y por basename; se toma la
+    primera coincidencia encontrada.
+
     Si seg_mode=False, convierte polígonos a bboxes (detección).
     Si seg_mode=True,  mantiene polígonos (segmentación — NO compatible
                         con el pipeline de augmentation actual que usa
                         BboxParams; se ignoran las coords extra).
-    Nota: Albumentations soporta bbox augmentation de forma nativa;
-          para segmentación se necesitaría KeypointParams adicional.
-          En este módulo siempre se trabaja con bboxes para compatibilidad.
     """
+    if isinstance(carpetas_imgs, str):
+        carpetas_imgs = [carpetas_imgs]
+
     pares = []
     for nombre_archivo, anotaciones in mapa_imagen.items():
-        ruta_img = os.path.join(carpeta_imgs, nombre_archivo)
-        if not os.path.exists(ruta_img):
-            # Buscar solo por basename por si la ruta incluye subdirectorios
-            ruta_img = os.path.join(carpeta_imgs, os.path.basename(nombre_archivo))
-        if not os.path.exists(ruta_img):
-            print(f"[WARN] Imagen no encontrada: {nombre_archivo}")
+        ruta_img = _buscar_imagen(nombre_archivo, carpetas_imgs)
+        if ruta_img is None:
+            print(f"[WARN] Imagen no encontrada en ninguna carpeta: {nombre_archivo}")
             continue
 
         bboxes, labels = [], []
@@ -156,22 +171,29 @@ def listar_pares_ndjson(
     return pares
 
 
-def listar_pares_txt(carpeta: str) -> list[tuple[str, str, list, list]]:
+def listar_pares_txt(carpetas: list[str] | str) -> list[tuple[str, str, list, list]]:
     """
-    Carga pares desde carpeta con imágenes + .txt YOLO.
+    Carga pares desde una o varias carpetas con imágenes + .txt YOLO.
     Devuelve lista de (ruta_img, base, bboxes, labels).
     """
+    if isinstance(carpetas, str):
+        carpetas = [carpetas]
+
     pares = []
-    for f in sorted(os.listdir(carpeta)):
-        if not f.lower().endswith(IMG_EXTS):
+    for carpeta in carpetas:
+        if not os.path.isdir(carpeta):
+            print(f"[WARN] Carpeta no encontrada: {carpeta}")
             continue
-        base    = os.path.splitext(f)[0]
-        ruta_txt = os.path.join(carpeta, base + ".txt")
-        if not os.path.exists(ruta_txt):
-            continue
-        ruta_img        = os.path.join(carpeta, f)
-        bboxes, labels  = leer_yolo_txt(ruta_txt)
-        pares.append((ruta_img, base, bboxes, labels))
+        for f in sorted(os.listdir(carpeta)):
+            if not f.lower().endswith(IMG_EXTS):
+                continue
+            base     = os.path.splitext(f)[0]
+            ruta_txt = os.path.join(carpeta, base + ".txt")
+            if not os.path.exists(ruta_txt):
+                continue
+            ruta_img       = os.path.join(carpeta, f)
+            bboxes, labels = leer_yolo_txt(ruta_txt)
+            pares.append((ruta_img, base, bboxes, labels))
     return pares
 
 # SECCIÓN 2 — Pipeline de augmentation
@@ -215,13 +237,9 @@ def construir_pipeline():
         ),
 
         # Ruido: simula sensor de smartphone
-        _try_kwargs(
-            A.GaussNoise,
-            {"std_range": (0.03, 0.2), "p": 0.4},
-            {"var_limit": (10, 40), "p": 0.4},
-        ),
+        A.GaussNoise(var_limit=(10.0, 40.0), p=0.4),
         A.MotionBlur(blur_limit=5, p=0.2),
-        A.GaussianBlur(blur_limit=3, p=0.2),
+        A.GaussianBlur(blur_limit=(3, 7), sigma_limit=(0.1, 2.0), p=0.2),
 
         # Oclusión: herramientas superpuestas
         _try_kwargs(
@@ -322,8 +340,15 @@ def main():
     # CONFIGURACIÓN — Edita estos valores según tu proyecto
 
     class args:
-        input_dir    = "data/raw"               # carpeta con las imágenes originales
-        ndjson       = "data/raw/annotations.ndjson"     # ruta al .ndjson de Ultralytics
+        # Lista de carpetas con imágenes originales. Cada colaborador puede
+        # tener su propia subcarpeta; el pipeline busca cada imagen del
+        # NDJSON en todas ellas (por ruta relativa y por basename).
+        input_dirs   = [
+            "data/raw/juanl",
+            "data/raw/juanma",
+            "data/raw/tiago",
+        ]
+        ndjson       = "data/raw/unified.ndjson"         # NDJSON unificado
         output_dir   = "data/augmented"         # carpeta de salida del dataset
         factor       = 12                       # imágenes generadas por imagen original
         mosaic_ratio = 0.30                     # fracción de imágenes vía mosaico
@@ -338,14 +363,15 @@ def main():
             print(f"[ERROR] NDJSON no encontrado: {args.ndjson}")
             return
         print(f"[INFO] Fuente: NDJSON ({args.ndjson})")
+        print(f"[INFO] Buscando imágenes en: {args.input_dirs}")
         meta, mapa_imagen = cargar_ndjson(args.ndjson)
         nombres_clase: dict = meta.get("class_names", {})
         print(f"[INFO] Clases detectadas: {nombres_clase}")
-        pares = listar_pares_ndjson(args.input_dir, mapa_imagen)
+        pares = listar_pares_ndjson(args.input_dirs, mapa_imagen)
     else:
-        print(f"[INFO] Fuente: carpeta con .txt YOLO ({args.input_dir})")
-        pares = listar_pares_txt(args.input_dir)
-        nombres_clase = _leer_classes_txt(args.input_dir)
+        print(f"[INFO] Fuente: carpetas con .txt YOLO ({args.input_dirs})")
+        pares = listar_pares_txt(args.input_dirs)
+        nombres_clase = _leer_classes_txt(args.input_dirs)
 
     if not pares:
         print(f"[ERROR] No se encontraron pares imagen/anotación.")
@@ -379,7 +405,7 @@ def main():
             aug_img = cv2.cvtColor(res["image"], cv2.COLOR_RGB2BGR)
             generados.append((f"{base}_aug{k}", aug_img,
                               list(res["bboxes"]),
-                              list(res["class_labels"])))
+                              [int(c) for c in res["class_labels"]]))
 
     # Mosaicos 
     total_objetivo = len(pares) * args.factor
@@ -422,17 +448,19 @@ def main():
         with open(ruta_classes, "w", encoding="utf-8") as fh:
             fh.write("\n".join(nombres_clase) + "\n")
 
-    # Copiar classes.txt desde input_dir si existe y no se generó desde NDJSON
+    # Copiar classes.txt desde la primera input_dir que lo tenga (modo TXT)
     if not args.ndjson:
-        src = os.path.join(args.input_dir, "classes.txt")
-        if os.path.exists(src):
-            shutil.copy(src, ruta_classes)
+        for carpeta in args.input_dirs:
+            src = os.path.join(carpeta, "classes.txt")
+            if os.path.exists(src):
+                shutil.copy(src, ruta_classes)
+                break
 
     # Estadísticas
     dist_train = defaultdict(int)
     for _n, _img, _b, labels in train_full:
         for cid in labels:
-            dist_train[cid] += 1
+            dist_train[int(cid)] += 1
 
     nc_list = _leer_classes_desde_ruta(ruta_classes)
 
@@ -442,10 +470,19 @@ def main():
     print(f"Train: {len(train_full)}  |  Val: {len(val_full)}  |  "
           f"Test: {len(test_full)}")
     print("\nDistribución de clases en TRAIN (por class_id):")
-    for cid in sorted(dist_train):
+    # Recorre todas las clases canónicas para que las que tienen 0
+    # instancias también sean visibles.
+    ids_a_reportar = sorted(set(range(len(nc_list))) | set(dist_train.keys()))
+    for cid in ids_a_reportar:
+        count = dist_train.get(cid, 0)
         etq   = nc_list[cid] if cid < len(nc_list) else str(cid)
-        marca = "  <-- POCAS (<20)" if dist_train[cid] < 20 else ""
-        print(f"  [{cid:2d}] {etq:<24} {dist_train[cid]:>5}{marca}")
+        if count == 0:
+            marca = "  <-- SIN INSTANCIAS"
+        elif count < 20:
+            marca = "  <-- POCAS (<20)"
+        else:
+            marca = ""
+        print(f"  [{cid:2d}] {etq:<24} {count:>5}{marca}")
 
     faltantes = [c for c in range(len(nc_list)) if dist_train.get(c, 0) < 20]
     if faltantes:
@@ -457,14 +494,17 @@ def main():
 
 # Helpers de lectura de clases
 
-def _leer_classes_txt(carpeta: str):
-    """Lee classes.txt desde una carpeta, devuelve dict {str_id: nombre}."""
-    ruta = os.path.join(carpeta, "classes.txt")
-    if not os.path.exists(ruta):
-        return {}
-    with open(ruta, "r", encoding="utf-8") as fh:
-        lineas = [l.strip() for l in fh if l.strip()]
-    return {str(i): nombre for i, nombre in enumerate(lineas)}
+def _leer_classes_txt(carpetas: list[str] | str):
+    """Lee classes.txt desde la primera carpeta que lo tenga; devuelve dict {str_id: nombre}."""
+    if isinstance(carpetas, str):
+        carpetas = [carpetas]
+    for carpeta in carpetas:
+        ruta = os.path.join(carpeta, "classes.txt")
+        if os.path.exists(ruta):
+            with open(ruta, "r", encoding="utf-8") as fh:
+                lineas = [l.strip() for l in fh if l.strip()]
+            return {str(i): nombre for i, nombre in enumerate(lineas)}
+    return {}
 
 
 def _leer_classes_desde_ruta(ruta: str) -> list:

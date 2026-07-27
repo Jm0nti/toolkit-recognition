@@ -23,7 +23,7 @@ import uvicorn
 
 from detector import _detectar_dispositivo, _color_para_clase
 
-MODEL_PATH = "models/best.pt"
+MODEL_PATH = "runs/tools/weights/best.pt"
 SALIDA_DIR = "outputs/predicciones"
 os.makedirs(SALIDA_DIR, exist_ok=True)
 
@@ -38,10 +38,40 @@ _device = None
 
 def cargar_modelo():
     global _modelo, _device
-    if _modelo is None:
-        from ultralytics import YOLO
-        _device = _detectar_dispositivo()
-        _modelo = YOLO(MODEL_PATH)
+    if _modelo is not None:
+        return _modelo
+
+    from ultralytics import YOLO
+    import torch
+
+    _modelo = YOLO(MODEL_PATH)
+    _device = _detectar_dispositivo()
+
+    # Permite forzar CPU vía env var (útil si la VRAM está ocupada por
+    # otro proceso: entrenamientos abiertos, navegador, IDE, etc.)
+    if os.environ.get("FORCE_CPU", "").lower() in ("1", "true", "yes"):
+        _device = "cpu"
+        print("[INFO] FORCE_CPU=1 -> inferencia en CPU.")
+        return _modelo
+
+    # Intento de warm-up en el device elegido: si la GPU está sin VRAM
+    # libre, hago fallback a CPU sin romper el request.
+    if _device == "cuda":
+        try:
+            _modelo.to("cuda")
+            # ping mínimo para provocar la asignación real de VRAM
+            dummy = np.zeros((32, 32, 3), dtype=np.uint8)
+            _modelo.predict(source=dummy, device="cuda", verbose=False)
+            print("[INFO] Modelo cargado en GPU (cuda).")
+        except (torch.cuda.OutOfMemoryError, RuntimeError) as exc:
+            if "out of memory" in str(exc).lower():
+                print(f"[AVISO] GPU sin VRAM disponible ({exc.__class__.__name__}). "
+                      f"Cayendo a CPU. Cierra otros procesos con nvidia-smi si quieres GPU.")
+                torch.cuda.empty_cache()
+                _device = "cpu"
+                _modelo = YOLO(MODEL_PATH)  # recargar limpio en CPU
+            else:
+                raise
     return _modelo
 
 

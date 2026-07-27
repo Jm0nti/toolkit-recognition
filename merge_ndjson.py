@@ -24,7 +24,8 @@ from pathlib import Path
 INPUT_FILES: list[str] = [
     "data/raw/juanma/hand-tools.ndjson",
     "data/raw/tiago/herramientas.ndjson",
-    "data/raw/juanl/annotations.ndjson"
+    "data/raw/juanl/annotations.ndjson",
+    "data/raw/jacob/vision.ndjson"
 ]
 OUTPUT_FILE: str = "data/raw/unified.ndjson"
 DATASET_NAME: str = "toolkit-unified"

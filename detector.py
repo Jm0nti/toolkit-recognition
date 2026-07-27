@@ -100,6 +100,10 @@ def train(dataset_yaml="data.yaml", model_size="n", epochs=100,
         project=project,
         name=name,
         exist_ok=True,
+        # En Windows multiprocessing usa 'spawn' y cada worker re-picklea
+        # el estado del padre (dataset+cache). Con workers=8 (default) y
+        # cache=True el respawn de 'close_mosaic' puede reventar la RAM.
+        workers=2,
     )
 
     if device == "cuda":
@@ -191,7 +195,7 @@ def predict(source, model_path="models/best.pt", conf=0.4, iou=0.5,
 
 # EVALUACION
 
-def evaluate(dataset_yaml="data.yaml", model_path="models/best.pt", umbral=0.75):
+def evaluate(dataset_yaml="data.yaml", model_path="runs/tools/weights/best.pt", umbral=0.75):
     """
     Ejecuta YOLOv8 val sobre el split test e imprime metricas.
     """
@@ -268,13 +272,13 @@ def main():
 
     p_pred = sub.add_parser("predict", help="Predecir sobre imagen/carpeta.")
     p_pred.add_argument("--source",     required=True)
-    p_pred.add_argument("--model",      default="models/best.pt")
+    p_pred.add_argument("--model",      default="runs/tools/weights/best.pt")
     p_pred.add_argument("--conf",       type=float, default=0.4)
     p_pred.add_argument("--output_dir", default="outputs/predicciones")
 
     p_eval = sub.add_parser("evaluate", help="Evaluar sobre split test.")
     p_eval.add_argument("--data",  default="data.yaml")
-    p_eval.add_argument("--model", default="models/best.pt")
+    p_eval.add_argument("--model", default="runs/tools/weights/best.pt")
 
     args = parser.parse_args()
 

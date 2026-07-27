@@ -1,0 +1,10 @@
+metro
+destornillador
+martillo
+pinzas
+alicate
+llave_inglesa
+llave_combinada
+brocha
+espatula
+llave_tubo

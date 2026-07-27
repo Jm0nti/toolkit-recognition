@@ -12,13 +12,13 @@ data/**/*.jpg
 data/**/*.jpeg
 
 # Salidas de entrenamiento YOLO
-runs/
+# runs/  (omitido por ahora, incluir para informe)
 
 # Artefactos de clasificación (dataset y reportes se regeneran)
 outputs/ml_datasets/
-outputs/ml_reports/
+#outputs/ml_reports/ (omitido por ahora, incluir para informe)
 outputs/predicciones/
-outputs/metricas/
+#outputs/metricas/         (omitido por ahora, incluir para informe)
 
 # Modelos entrenados (se regeneran)
 models/detection/*.pt

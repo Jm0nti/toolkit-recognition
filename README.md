@@ -314,14 +314,3 @@ toolkit-img-recognition/
 ```
 
 ---
-
-## 8. Troubleshooting
-
-| Síntoma | Causa probable | Fix |
-|---|---|---|
-| `CUDA error: out of memory` al arrancar el frontend | Otro proceso ocupa la VRAM | `serve_app.py` cae a CPU automáticamente; o `FORCE_CPU=1 python scripts/serve_app.py` |
-| `MemoryError` durante el `close_mosaic` de YOLO | Windows spawn respawnnea los workers con demasiada RAM | Ya está fijado `workers=2` en `detector.py`; bajar a `0` si persiste |
-| `UserWarning: 'std_range' is not valid and will be ignored` en Albumentations 1.4 | Firma nueva no reconocida | Ya corregido: `augmentation_pipeline.py` usa `var_limit` y `sigma_limit` explícitos |
-| Alguna clase muestra `<-- SIN INSTANCIAS` en el resumen del aumento | Nadie anotó esa clase | Anotar más ejemplos, o quitarla del canónico en `merge_ndjson.py` y `data.yaml` |
-| `Package 'scikit-learn' is not installed` | Nuevas dependencias del Módulo 4 | `pip install -r requirements.txt` |
-| Recortes muy pequeños se pierden al construir el dataset | Bboxes degenerados (<24 px de lado tras el crop) | Ajustar `MIN_CROP_PX` en `dataset_builder.py` |

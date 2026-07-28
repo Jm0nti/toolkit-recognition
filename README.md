@@ -2,8 +2,8 @@
 
 Pipeline completo de **visión artificial** sobre fotos cenitales de cajas de
 herramientas: unificación de anotaciones colaborativas, aumento de datos,
-**detección** con YOLOv8 y **clasificación** con tres métodos ML complementarios
-(dos clásicos + una CNN). El repositorio cumple los cuatro ejes de la rúbrica
+**detección** con YOLOv8, **segmentación** (anotación poligonal + Otsu/GrabCut)
+y **clasificación** con tres métodos ML complementarios (dos clásicos + una CNN). El repositorio cumple los cuatro ejes de la rúbrica
 académica: *descripción del dataset, metodología, presentación de resultados y
 métricas, análisis y conclusiones*.
 
@@ -11,8 +11,9 @@ métricas, análisis y conclusiones*.
 
 ## 1. Descripción del dataset
 
-- **Origen.** Fotos tomadas con smartphone por tres colaboradores
-  (`data/raw/juanl/`, `data/raw/juanma/`, `data/raw/tiago/`). Cada uno anotó su
+- **Origen.** Fotos tomadas con smartphone por cuatro colaboradores
+  (`data/raw/jacob/`, `data/raw/juanl/`, `data/raw/juanma/`, `data/raw/tiago/`).
+  Cada uno anotó su
   set en la plataforma Ultralytics y exportó un archivo NDJSON independiente.
   El script `src/data/merge_ndjson.py` los une con orden canónico de clases
   (ver §3.1).
@@ -31,7 +32,7 @@ métricas, análisis y conclusiones*.
 - **Limitaciones.**
   - Volumen bajo por clase (algunas <150 recortes en train antes del aumento).
   - Sesgo de iluminación (mismas condiciones dentro de cada colaborador).
-  - Solo tres personas → variabilidad de estilo de foto acotada.
+  - Solo cuatro personas → variabilidad de estilo de foto acotada.
   - Herramientas dentro de cajas → sombras y reflejos metálicos frecuentes.
 
 ---
@@ -46,6 +47,7 @@ Cuatro módulos independientes, orquestables individualmente:
 | 2 | Aumento de datos + splits | `src/detection/augmentation_pipeline.py` | Albumentations + mosaico + split estratificado train/val/test |
 | 3 | Detección YOLOv8 | `src/detection/detector.py` | Fine-tuning, predicción y evaluación con mAP |
 | 4 | **Clasificación ML** | `src/classification/` | Recortes de bboxes → 3 clasificadores (HOG+SVM, ColorHist+RF, CNN) |
+| 5 | Segmentación clásica | `src/classification/segmentation.py` | Otsu y GrabCut (inicializado con los bboxes del detector) |
 
 Los scripts de arranque viven en `scripts/`; la lógica en `src/`. Todas las
 rutas se anclan a la raíz del repo (ver `src/paths.py`), por lo que los
@@ -61,6 +63,7 @@ todas están implementadas en `src/classification/preprocessing.py` y `features.
 | Conversión a escala de grises | `preprocessing.to_grayscale` | Base del descriptor HOG y de Sobel/Canny |
 | Separación de canales de color | `preprocessing.split_bgr`, `split_hsv` | Base del histograma de color HSV |
 | Detección de bordes | `preprocessing.edges_canny`, `edges_sobel` | Disponibles como utilidades; el HOG ya captura el gradiente de bordes de forma implícita |
+| Segmentación | `segmentation.mask_otsu`, `segmentation.mask_grabcut` | Ver §4.5 y la justificación en §6 |
 | Extracción de características | `features.hog_features`, `features.color_histogram`, `features.combined_features` | HOG (forma/contornos) + histograma HSV (color) |
 
 Sobre esas features se entrenan tres clasificadores complementarios:
@@ -147,7 +150,9 @@ python -m src.detection.detector evaluate --data data.yaml
 python -m src.detection.detector predict --source data/raw/juanl
 ```
 
-Los pesos finales se copian a `models/detection/best.pt`.
+Los pesos entrenados quedan en `runs/tools/weights/best.pt`. Si existe
+`models/detection/best.pt` el frontend lo usa primero; si no, cae solo
+al de `runs/`.
 
 Frontend web para probar interactivamente:
 
@@ -187,6 +192,18 @@ Los reportes por modelo se guardan en `outputs/ml_reports/`:
 - `<modelo>_confusion_matrix.png` — matriz normalizada por fila.
 - `comparison.{md,csv,png}` — tabla comparativa de todos los modelos.
 
+### 4.5 Demo de segmentación clásica (Módulo 5)
+
+```bash
+python scripts/run_segmentation_demo.py          # 2 fotos por colaborador
+python scripts/run_segmentation_demo.py --n 4
+```
+
+Por cada foto guarda en `outputs/segmentacion/` una tira comparativa:
+`original | máscara Otsu | overlay Otsu | overlay GrabCut`. GrabCut se
+inicializa con los bounding boxes del detector, así los dos métodos quedan
+comparados sobre las mismas fotos reales del dataset.
+
 ---
 
 ## 5. Métricas y presentación de resultados
@@ -199,6 +216,14 @@ Los reportes por modelo se guardan en `outputs/ml_reports/`:
 
 Estos artefactos los produce Ultralytics automáticamente en `runs/tools/` y
 se copian a `outputs/metricas/` al ejecutar `evaluate`.
+
+**Resultados obtenidos** (última época del fine-tuning, split val):
+
+| mAP@0.5 | mAP@0.5:0.95 |
+|---:|---:|
+| **0.956** | 0.838 |
+
+Se supera con margen la meta académica de mAP@0.5 ≥ 0.75.
 
 ### 5.2 Módulo de clasificación (Módulo 4)
 
@@ -213,68 +238,80 @@ Por cada uno de los tres modelos:
 Y la tabla comparativa unificada (`comparison.md`) permite justificar por qué
 un método le gana a otro en el análisis.
 
-**Resultados obtenidos** (smoke test con `python scripts/run_ml_pipeline.py`,
-CNN a 15 epochs — subir `--epochs` mejora la CNN significativamente):
+**Resultados obtenidos** (los mismos números que `outputs/ml_reports/comparison.md`):
 
 | Modelo | Accuracy | Macro-F1 | N test | Train (s) | Pred (s) |
 |---|---:|---:|---:|---:|---:|
-| hog_svm       | 0.891 | 0.887 | 495 | 28.2  | 3.17 |
-| color_hist_rf | 0.877 | 0.874 | 495 |  8.3  | 0.59 |
-| cnn (15 ep.)  | 0.800 | 0.785 | 495 | 210.0 | 1.81 |
-
-Observaciones iniciales:
-
-- Los **clásicos superan a la CNN** con este volumen de datos y epochs. La CNN
-  seguía bajando la loss (val_acc pasó de 0.34 → 0.73 en 15 epochs); con 30-50
-  epochs típicamente alcanza o supera a los clásicos, dado su mayor capacidad.
-- **HOG + SVM** es el ganador por poco: siluetas y bordes son la señal más
-  robusta para estas herramientas.
-- **Color hist + RF** entrena en 8 s y predice en <1 s: candidato natural
-  para un baseline rápido / edge.
+| hog_svm       | 0.891 | 0.887 | 495 |  15.1 | 6.04 |
+| color_hist_rf | 0.877 | 0.874 | 495 |   4.9 | 0.62 |
+| cnn           | 0.832 | 0.823 | 495 | 368.4 | 1.30 |
 
 Los reportes por clase (P/R/F1) y matrices de confusión están en
 `outputs/ml_reports/`.
 
 ---
 
-## 6. Análisis y conclusiones (guía)
+## 6. Análisis y conclusiones
 
-Este archivo entrega la **infraestructura**; el análisis se documenta luego
-en base a los outputs reales. La rúbrica pide, para cada resultado:
-
-1. **Qué método ganó y por qué.** HOG+SVM y RF sobre color son sorprendentemente
-   fuertes en este dataset porque las herramientas tienen siluetas y colores
-   distintivos. La CNN puede quedarse cerca o superar a los clásicos según cuán
-   generalizables sean las features aprendidas frente al pequeño volumen de datos.
-2. **Dónde falla cada modelo.** La matriz de confusión de cada uno muestra los
-   pares problemáticos típicos (`pinzas` ↔ `alicate`, `llave_inglesa` ↔
-   `llave_combinada`). Reportar estos pares es más valioso que un solo número.
-3. **Trade-offs.** Los modelos clásicos entrenan en segundos y se ejecutan en
-   CPU sin problema; la CNN es más pesada de entrenar pero potencialmente más
-   robusta a variaciones no vistas. Los tiempos están en `comparison.csv`.
-4. **Inconvenientes durante el proceso.** Documentar en el informe:
-   - Bajo volumen por clase → dependemos fuertemente del augmentation.
+1. **Qué método ganó y por qué.** En detección, YOLOv8n fine-tuneado llegó a
+   **mAP@0.5 = 0.956**. En clasificación ganó **HOG+SVM (0.891)**, seguido de
+   cerca por ColorHist+RF (0.877) y más atrás la CNN (0.832). Con ~3.700
+   recortes las herramientas se distinguen sobre todo por su **silueta**
+   (mangos alargados, cabezas metálicas), que es justo lo que HOG captura;
+   la CNN, con más capacidad pero pocos datos, no alcanza a generalizar mejor
+   que los descriptores diseñados a mano.
+2. **Dónde falla cada modelo.** Según los `_metrics.json`: HOG+SVM sufre con
+   `alicate` (F1 0.83), `espatula` (0.85) y `pinzas` (0.86) — el par
+   `pinzas` ↔ `alicate` comparte silueta y es la confusión principal. El RF de
+   color falla más en `llave_tubo` (0.82), porque el color metálico gris es
+   común a varias llaves. La CNN tiene su peor clase en `llave_inglesa`
+   (F1 0.63). Esta confusión se ve también en producción: en la prueba del
+   frontend, la misma foto con `conf = 0.4` produce detecciones duplicadas
+   pinzas/alicate sobre los mismos objetos, que desaparecen al subir el umbral.
+3. **Trade-offs.** ColorHist+RF entrena en 5 s y predice en 0.6 s (ideal como
+   baseline CPU/edge); HOG+SVM es el más preciso pero el más lento en
+   predicción (6 s); la CNN cuesta 368 s de entrenamiento sin mejorar a los
+   clásicos con este volumen de datos.
+4. **Segmentación: por qué el pipeline usa detección aprendida.** La evidencia
+   de `outputs/segmentacion/` muestra que **Otsu** solo funciona cuando el
+   fondo es uniforme y más claro/oscuro que las herramientas; en cajas con
+   sombras o fondos oscuros la máscara global se degrada. **GrabCut**
+   inicializado con el bbox del detector recorta bien las siluetas incluso en
+   fondos difíciles, pero necesita esa inicialización. Por eso la segmentación
+   "de producción" del proyecto es la **anotación poligonal** (NDJSON) + la
+   detección aprendida, y los métodos clásicos quedan implementados y
+   evaluados visualmente como comparación (§4.5).
+5. **Verificación end-to-end del frontend.** Probado con Playwright sobre
+   `http://localhost:8000`: subir una foto real de test detecta las 6
+   herramientas presentes con la clase correcta (metro 0.96, destornilladores
+   0.94/0.93, martillo 0.94, pinzas 0.80, alicate 0.70), el slider de
+   confianza re-filtra en vivo y el historial persiste entre sesiones.
+6. **Inconvenientes durante el proceso.**
+   - Bajo volumen por clase → dependencia fuerte del augmentation.
    - Anotaciones heterogéneas entre colaboradores → resuelto con `merge_ndjson.py`.
    - VRAM limitada (6 GB) → workers reducidos en YOLO y fallback CPU en `serve_app.py`.
-5. **Mejoras posibles.** Más datos por clase, transfer learning
+   - GrabCut sobre fotos de celular a resolución completa tarda minutos →
+     se reescala a lado máximo 1600 px antes de segmentar.
+7. **Mejoras posibles.** Más datos por clase, transfer learning
    (MobileNetV2/EfficientNet), features combinadas (HOG + histograma) para
-   sklearn, ensembles.
+   sklearn, ensembles, y NMS entre clases parecidas (pinzas/alicate) en el
+   frontend para eliminar duplicados.
 
 ---
 
 ## 7. Estructura del proyecto
 
 ```
-toolkit-img-recognition/
+toolkit-recognition/
 ├── README.md
 ├── requirements.txt
 ├── data.yaml                                # config YOLO
 ├── data/
 │   ├── raw/
-│   │   ├── juanl/  juanma/  tiago/          # imágenes por colaborador
+│   │   ├── jacob/ juanl/ juanma/ tiago/     # imágenes por colaborador
 │   │   └── unified.ndjson                   # NDJSON unificado (salida M1)
 │   └── augmented/                           # dataset YOLO (salida M2)
-│       ├── images/{train,val,test}
+│       ├── images/{train,val,test}          # (ignoradas por git, se regeneran)
 │       ├── labels/{train,val,test}
 │       └── classes.txt
 ├── src/                                     # código fuente
@@ -284,9 +321,10 @@ toolkit-img-recognition/
 │   ├── detection/
 │   │   ├── augmentation_pipeline.py         # Módulo 2
 │   │   └── detector.py                      # Módulo 3
-│   └── classification/                      # Módulo 4
+│   └── classification/                      # Módulos 4 y 5
 │       ├── preprocessing.py                 # gris, canales, bordes
 │       ├── features.py                      # HOG, color histogram
+│       ├── segmentation.py                  # Otsu + GrabCut (Módulo 5)
 │       ├── dataset_builder.py               # crops desde YOLO labels
 │       ├── evaluation.py                    # métricas + comparación
 │       └── models/
@@ -300,17 +338,20 @@ toolkit-img-recognition/
 │   ├── run_ml_dataset.py                    # M4 - construir dataset
 │   ├── run_ml_train.py     [--model X]      # M4 - entrenar
 │   ├── run_ml_evaluate.py  [--model X]      # M4 - evaluar
-│   └── run_ml_pipeline.py                   # M4 - todo el flujo
-├── models/
-│   ├── detection/best.pt                    # pesos YOLO
-│   └── classification/                      # hog_svm.joblib, color_hist_rf.joblib, cnn.pt
+│   ├── run_ml_pipeline.py                   # M4 - todo el flujo
+│   └── run_segmentation_demo.py             # M5 - comparativas de segmentación
 ├── outputs/
-│   ├── predicciones/                        # detecciones del frontend
+│   ├── predicciones/                        # detecciones del frontend (ignoradas)
 │   ├── metricas/                            # gráficos YOLO
-│   ├── ml_datasets/crops/{train,val,test}/  # recortes de clasificación
+│   ├── segmentacion/                        # comparativas Otsu vs GrabCut
+│   ├── ml_datasets/crops/{train,val,test}/  # recortes (ignorados, se regeneran)
 │   └── ml_reports/                          # métricas + matrices + comparación
 ├── runs/                                    # logs y checkpoints de Ultralytics
+│   └── tools/weights/best.pt                # pesos YOLO entrenados
 └── web/index.html                           # frontend estático
 ```
+
+Los modelos de clasificación entrenados (`models/classification/*`) y los
+recortes se regeneran con los scripts del Módulo 4, por eso no van en git.
 
 ---

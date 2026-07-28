@@ -9,6 +9,7 @@ y se abre http://localhost:8000 en el navegador.
 """
 
 import base64
+import csv
 import glob
 import json
 import os
@@ -28,58 +29,93 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
 from src.detection.detector import _detectar_dispositivo, _color_para_clase  # noqa: E402
-from src.paths import DETECTION_MODELS, PREDICTIONS_DIR, WEB_DIR  # noqa: E402
+from src.paths import (  # noqa: E402
+    DETECTION_MODELS, OUTPUTS_DIR, PREDICTIONS_DIR, RUNS_DIR, WEB_DIR,
+)
 
-MODEL_PATH = str(DETECTION_MODELS / "best.pt")
 SALIDA_DIR = str(PREDICTIONS_DIR)
 os.makedirs(SALIDA_DIR, exist_ok=True)
+
+# carpetas con las graficas de los dos modelos (deteccion y clasificacion)
+METRICAS_DIR = OUTPUTS_DIR / "metricas"
+ML_REPORTS_DIR = OUTPUTS_DIR / "ml_reports"
+RUNS_TOOLS_DIR = RUNS_DIR / "tools"
 
 app = FastAPI(title="Detector de herramientas")
 # servir las imagenes guardadas para poder mostrarlas en el historial
 app.mount("/predicciones", StaticFiles(directory=SALIDA_DIR), name="predicciones")
 
-# el modelo se carga una sola vez, en la primera peticion
-_modelo = None
-_device = None
+# servir las graficas de metricas y las evidencias del pipeline
+for _url, _carpeta in [("/metricas-img", METRICAS_DIR),
+                       ("/ml-img", ML_REPORTS_DIR),
+                       ("/runs-img", RUNS_TOOLS_DIR),
+                       ("/out", OUTPUTS_DIR)]:
+    if _carpeta.exists():
+        app.mount(_url, StaticFiles(directory=str(_carpeta)), name=_url.strip("/"))
+
+# ── Registro de modelos ─────────────────────────────────────
+# Cada modelo entrenado se ofrece en la página para poder compararlos.
+# Solo aparecen los best.pt que existen en disco.
+def _candidatos_modelos():
+    cands = [
+        ("mio", "El mío · 10 clases", RUNS_TOOLS_DIR / "weights" / "best.pt"),
+        ("real6", "6-tool · dataset real", DETECTION_MODELS / "real6" / "best.pt"),
+    ]
+    listados = {c[0] for c in cands}
+    # además cualquier otro models/detection/<nombre>/best.pt
+    if DETECTION_MODELS.exists():
+        for sub in sorted(DETECTION_MODELS.iterdir()):
+            w = sub / "best.pt"
+            if sub.is_dir() and w.exists() and sub.name not in listados:
+                cands.append((sub.name, sub.name, w))
+    return [(i, lbl, p) for i, lbl, p in cands if p.exists()]
 
 
-def cargar_modelo():
-    global _modelo, _device
-    if _modelo is not None:
-        return _modelo
+_modelos_cache = {}   # id -> (YOLO, device)
 
+
+def cargar_modelo(model_id=None):
+    """Devuelve (id, modelo, device). Carga y cachea el modelo pedido.
+
+    Si no existe ningún modelo, devuelve (None, None, None).
+    """
+    cands = _candidatos_modelos()
+    if not cands:
+        return None, None, None
+    ids = [c[0] for c in cands]
+    if model_id not in ids:
+        model_id = ids[0]                 # por defecto, el primero (el mío)
+    if model_id in _modelos_cache:
+        modelo, device = _modelos_cache[model_id]
+        return model_id, modelo, device
+
+    ruta = next(p for i, _, p in cands if i == model_id)
     from ultralytics import YOLO
     import torch
 
-    _modelo = YOLO(MODEL_PATH)
-    _device = _detectar_dispositivo()
+    modelo = YOLO(str(ruta))
+    device = _detectar_dispositivo()
 
-    # Permite forzar CPU vía env var (útil si la VRAM está ocupada por
-    # otro proceso: entrenamientos abiertos, navegador, IDE, etc.)
+    # Permite forzar CPU vía env var (VRAM ocupada por otro proceso, etc.)
     if os.environ.get("FORCE_CPU", "").lower() in ("1", "true", "yes"):
-        _device = "cpu"
-        print("[INFO] FORCE_CPU=1 -> inferencia en CPU.")
-        return _modelo
-
-    # Intento de warm-up en el device elegido: si la GPU está sin VRAM
-    # libre, hago fallback a CPU sin romper el request.
-    if _device == "cuda":
+        device = "cpu"
+    elif device == "cuda":
+        # warm-up: si la GPU no tiene VRAM libre, caigo a CPU sin romper
         try:
-            _modelo.to("cuda")
-            # ping mínimo para provocar la asignación real de VRAM
-            dummy = np.zeros((32, 32, 3), dtype=np.uint8)
-            _modelo.predict(source=dummy, device="cuda", verbose=False)
-            print("[INFO] Modelo cargado en GPU (cuda).")
+            modelo.to("cuda")
+            modelo.predict(source=np.zeros((32, 32, 3), dtype=np.uint8),
+                           device="cuda", verbose=False)
         except (torch.cuda.OutOfMemoryError, RuntimeError) as exc:
             if "out of memory" in str(exc).lower():
-                print(f"[AVISO] GPU sin VRAM disponible ({exc.__class__.__name__}). "
-                      f"Cayendo a CPU. Cierra otros procesos con nvidia-smi si quieres GPU.")
                 torch.cuda.empty_cache()
-                _device = "cpu"
-                _modelo = YOLO(MODEL_PATH)  # recargar limpio en CPU
+                device = "cpu"
+                modelo = YOLO(str(ruta))
             else:
                 raise
-    return _modelo
+
+    _modelos_cache[model_id] = (modelo, device)
+    print(f"[INFO] modelo '{model_id}' cargado ({ruta}) en {device}.")
+    return model_id, modelo, device
 
 
 @app.get("/")
@@ -88,16 +124,22 @@ def inicio():
 
 
 @app.post("/detectar")
-async def detectar(imagen: UploadFile = File(...), conf: float = 0.4):
+async def detectar(imagen: UploadFile = File(...), conf: float = 0.4,
+                   modelo: str = None):
     datos = await imagen.read()
     arr = cv2.imdecode(np.frombuffer(datos, np.uint8), cv2.IMREAD_COLOR)
     if arr is None:
         return JSONResponse({"error": "No pude leer la imagen."}, status_code=400)
 
-    modelo = cargar_modelo()
+    mid, red, device = cargar_modelo(modelo)
+    if red is None:
+        return JSONResponse(
+            {"error": "No hay ningún modelo disponible. Entrena o coloca un best.pt."},
+            status_code=503)
+
     t0 = time.time()
-    resultados = modelo.predict(source=arr, conf=conf, iou=0.5,
-                                device=_device, verbose=False)
+    resultados = red.predict(source=arr, conf=conf, iou=0.5,
+                             device=device, verbose=False)
     tiempo_ms = int((time.time() - t0) * 1000)
 
     res = resultados[0]
@@ -137,6 +179,7 @@ async def detectar(imagen: UploadFile = File(...), conf: float = 0.4):
         "conteo": conteo,
         "tiempo_ms": tiempo_ms,
         "fecha": time.strftime("%d/%m/%Y %H:%M"),
+        "modelo": mid,
     }
     with open(os.path.join(SALIDA_DIR, base + ".json"), "w", encoding="utf-8") as fh:
         json.dump(registro, fh, ensure_ascii=False)
@@ -147,6 +190,12 @@ async def detectar(imagen: UploadFile = File(...), conf: float = 0.4):
 
     return {**registro, "imagen": inmediata,
             "guardada_en": os.path.join(SALIDA_DIR, base + ".jpg")}
+
+
+@app.get("/modelos")
+def modelos():
+    """Modelos de detección disponibles para el selector de la página."""
+    return {"modelos": [{"id": i, "nombre": lbl} for i, lbl, _ in _candidatos_modelos()]}
 
 
 @app.get("/historial")
@@ -161,6 +210,101 @@ def historial(limite: int = 24):
         except Exception:
             pass
     return {"items": items}
+
+
+# ── Métricas de los modelos ────────────────────────────────
+# Fuentes donde buscar una grafica, en orden de preferencia.
+_FUENTES_IMG = [(METRICAS_DIR, "/metricas-img"), (RUNS_TOOLS_DIR, "/runs-img")]
+
+
+def _buscar_grafica(nombre: str, titulo: str):
+    """Devuelve {titulo, url} si la grafica existe en alguna fuente, si no None."""
+    for carpeta, url_base in _FUENTES_IMG:
+        if (carpeta / nombre).exists():
+            return {"titulo": titulo, "url": f"{url_base}/{nombre}"}
+    return None
+
+
+def _metricas_deteccion() -> dict:
+    d = {"curvas": [], "batches": []}
+    csv_path = RUNS_TOOLS_DIR / "results.csv"
+    if csv_path.exists():
+        with open(csv_path, encoding="utf-8") as fh:
+            filas = list(csv.DictReader(fh))
+        if filas:
+            ult = {k.strip(): v for k, v in filas[-1].items()}
+            d["precision"] = float(ult["metrics/precision(B)"])
+            d["recall"] = float(ult["metrics/recall(B)"])
+            d["map50"] = float(ult["metrics/mAP50(B)"])
+            d["map5095"] = float(ult["metrics/mAP50-95(B)"])
+            d["epochs"] = int(float(ult["epoch"]))
+
+    curvas = [
+        ("PR_curve.png", "Precisión-Recall"),
+        ("P_curve.png", "Precisión vs confianza"),
+        ("R_curve.png", "Recall vs confianza"),
+        ("F1_curve.png", "F1 vs confianza"),
+        ("confusion_matrix_normalized.png", "Matriz de confusión (norm.)"),
+        ("results.png", "Curvas de entrenamiento"),
+    ]
+    d["curvas"] = [g for n, t in curvas if (g := _buscar_grafica(n, t))]
+    batches = [("val_batch0_pred.jpg", "Predicciones val (lote 0)"),
+               ("val_batch1_pred.jpg", "Predicciones val (lote 1)")]
+    d["batches"] = [g for n, t in batches if (g := _buscar_grafica(n, t))]
+    return d
+
+
+def _metricas_clasificacion() -> dict:
+    modelos, matrices = [], []
+    etiquetas = {"hog_svm": "HOG + SVM", "color_hist_rf": "Color hist + RF", "cnn": "CNN"}
+    for nombre, titulo in etiquetas.items():
+        jp = ML_REPORTS_DIR / f"{nombre}_metrics.json"
+        if jp.exists():
+            with open(jp, encoding="utf-8") as fh:
+                m = json.load(fh)
+            modelos.append({
+                "nombre": titulo,
+                "accuracy": m.get("accuracy"),
+                "macro_f1": m.get("macro_f1"),
+                "train_s": m.get("duracion_train_s"),
+                "pred_s": m.get("duracion_pred_s"),
+                "n_test": m.get("n_test"),
+            })
+        cm = ML_REPORTS_DIR / f"{nombre}_confusion_matrix.png"
+        if cm.exists():
+            matrices.append({"titulo": titulo, "url": f"/ml-img/{cm.name}"})
+
+    comparativa = None
+    if (ML_REPORTS_DIR / "comparison.png").exists():
+        comparativa = "/ml-img/comparison.png"
+    return {"modelos": modelos, "matrices": matrices, "comparativa": comparativa}
+
+
+@app.get("/metricas")
+def metricas():
+    """Números y gráficas de los dos modelos, para la pestaña de métricas."""
+    return {"deteccion": _metricas_deteccion(),
+            "clasificacion": _metricas_clasificacion()}
+
+
+def _listar_imgs(carpeta: Path, url_base: str) -> list:
+    """URLs de las imagenes de una carpeta de evidencia (ordenadas)."""
+    if not carpeta.exists():
+        return []
+    exts = (".jpg", ".jpeg", ".png")
+    return [f"{url_base}/{p.name}" for p in sorted(carpeta.iterdir())
+            if p.suffix.lower() in exts]
+
+
+@app.get("/evidencia")
+def evidencia():
+    """Imágenes de cada etapa del pipeline, para la pestaña 'El proyecto'."""
+    return {
+        "adquisicion": _listar_imgs(OUTPUTS_DIR / "adquisicion", "/out/adquisicion"),
+        "preprocesamiento": _listar_imgs(OUTPUTS_DIR / "preprocesamiento", "/out/preprocesamiento"),
+        "segmentacion": _listar_imgs(OUTPUTS_DIR / "segmentacion", "/out/segmentacion"),
+        "caracteristicas": _listar_imgs(OUTPUTS_DIR / "caracteristicas", "/out/caracteristicas"),
+    }
 
 
 if __name__ == "__main__":

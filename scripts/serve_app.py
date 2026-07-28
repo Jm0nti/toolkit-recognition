@@ -49,10 +49,11 @@ app = FastAPI(title="Detector de herramientas")
 # servir las imagenes guardadas para poder mostrarlas en el historial
 app.mount("/predicciones", StaticFiles(directory=SALIDA_DIR), name="predicciones")
 
-# servir las graficas de metricas (solo si la carpeta existe)
+# servir las graficas de metricas y las evidencias del pipeline
 for _url, _carpeta in [("/metricas-img", METRICAS_DIR),
                        ("/ml-img", ML_REPORTS_DIR),
-                       ("/runs-img", RUNS_TOOLS_DIR)]:
+                       ("/runs-img", RUNS_TOOLS_DIR),
+                       ("/out", OUTPUTS_DIR)]:
     if _carpeta.exists():
         app.mount(_url, StaticFiles(directory=str(_carpeta)), name=_url.strip("/"))
 
@@ -254,6 +255,26 @@ def metricas():
     """Números y gráficas de los dos modelos, para la pestaña de métricas."""
     return {"deteccion": _metricas_deteccion(),
             "clasificacion": _metricas_clasificacion()}
+
+
+def _listar_imgs(carpeta: Path, url_base: str) -> list:
+    """URLs de las imagenes de una carpeta de evidencia (ordenadas)."""
+    if not carpeta.exists():
+        return []
+    exts = (".jpg", ".jpeg", ".png")
+    return [f"{url_base}/{p.name}" for p in sorted(carpeta.iterdir())
+            if p.suffix.lower() in exts]
+
+
+@app.get("/evidencia")
+def evidencia():
+    """Imágenes de cada etapa del pipeline, para la pestaña 'El proyecto'."""
+    return {
+        "adquisicion": _listar_imgs(OUTPUTS_DIR / "adquisicion", "/out/adquisicion"),
+        "preprocesamiento": _listar_imgs(OUTPUTS_DIR / "preprocesamiento", "/out/preprocesamiento"),
+        "segmentacion": _listar_imgs(OUTPUTS_DIR / "segmentacion", "/out/segmentacion"),
+        "caracteristicas": _listar_imgs(OUTPUTS_DIR / "caracteristicas", "/out/caracteristicas"),
+    }
 
 
 if __name__ == "__main__":

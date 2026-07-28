@@ -35,3 +35,7 @@ yolov8n.pt
 
 # Caches de YOLO (se regeneran al entrenar)
 *.cache
+
+# Config del editor y fotos de prueba locales (no van al repo)
+.vscode/
+img-test/

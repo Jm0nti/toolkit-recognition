@@ -9,6 +9,7 @@ y se abre http://localhost:8000 en el navegador.
 """
 
 import base64
+import csv
 import glob
 import json
 import os
@@ -28,7 +29,9 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
 from src.detection.detector import _detectar_dispositivo, _color_para_clase  # noqa: E402
-from src.paths import DETECTION_MODELS, PREDICTIONS_DIR, RUNS_DIR, WEB_DIR  # noqa: E402
+from src.paths import (  # noqa: E402
+    DETECTION_MODELS, OUTPUTS_DIR, PREDICTIONS_DIR, RUNS_DIR, WEB_DIR,
+)
 
 # usa models/detection/best.pt si existe; si no, el best.pt del entrenamiento
 MODEL_PATH = str(DETECTION_MODELS / "best.pt")
@@ -37,9 +40,21 @@ if not os.path.exists(MODEL_PATH):
 SALIDA_DIR = str(PREDICTIONS_DIR)
 os.makedirs(SALIDA_DIR, exist_ok=True)
 
+# carpetas con las graficas de los dos modelos (deteccion y clasificacion)
+METRICAS_DIR = OUTPUTS_DIR / "metricas"
+ML_REPORTS_DIR = OUTPUTS_DIR / "ml_reports"
+RUNS_TOOLS_DIR = RUNS_DIR / "tools"
+
 app = FastAPI(title="Detector de herramientas")
 # servir las imagenes guardadas para poder mostrarlas en el historial
 app.mount("/predicciones", StaticFiles(directory=SALIDA_DIR), name="predicciones")
+
+# servir las graficas de metricas (solo si la carpeta existe)
+for _url, _carpeta in [("/metricas-img", METRICAS_DIR),
+                       ("/ml-img", ML_REPORTS_DIR),
+                       ("/runs-img", RUNS_TOOLS_DIR)]:
+    if _carpeta.exists():
+        app.mount(_url, StaticFiles(directory=str(_carpeta)), name=_url.strip("/"))
 
 # el modelo se carga una sola vez, en la primera peticion
 _modelo = None
@@ -164,6 +179,81 @@ def historial(limite: int = 24):
         except Exception:
             pass
     return {"items": items}
+
+
+# ── Métricas de los modelos ────────────────────────────────
+# Fuentes donde buscar una grafica, en orden de preferencia.
+_FUENTES_IMG = [(METRICAS_DIR, "/metricas-img"), (RUNS_TOOLS_DIR, "/runs-img")]
+
+
+def _buscar_grafica(nombre: str, titulo: str):
+    """Devuelve {titulo, url} si la grafica existe en alguna fuente, si no None."""
+    for carpeta, url_base in _FUENTES_IMG:
+        if (carpeta / nombre).exists():
+            return {"titulo": titulo, "url": f"{url_base}/{nombre}"}
+    return None
+
+
+def _metricas_deteccion() -> dict:
+    d = {"curvas": [], "batches": []}
+    csv_path = RUNS_TOOLS_DIR / "results.csv"
+    if csv_path.exists():
+        with open(csv_path, encoding="utf-8") as fh:
+            filas = list(csv.DictReader(fh))
+        if filas:
+            ult = {k.strip(): v for k, v in filas[-1].items()}
+            d["precision"] = float(ult["metrics/precision(B)"])
+            d["recall"] = float(ult["metrics/recall(B)"])
+            d["map50"] = float(ult["metrics/mAP50(B)"])
+            d["map5095"] = float(ult["metrics/mAP50-95(B)"])
+            d["epochs"] = int(float(ult["epoch"]))
+
+    curvas = [
+        ("PR_curve.png", "Precisión-Recall"),
+        ("P_curve.png", "Precisión vs confianza"),
+        ("R_curve.png", "Recall vs confianza"),
+        ("F1_curve.png", "F1 vs confianza"),
+        ("confusion_matrix_normalized.png", "Matriz de confusión (norm.)"),
+        ("results.png", "Curvas de entrenamiento"),
+    ]
+    d["curvas"] = [g for n, t in curvas if (g := _buscar_grafica(n, t))]
+    batches = [("val_batch0_pred.jpg", "Predicciones val (lote 0)"),
+               ("val_batch1_pred.jpg", "Predicciones val (lote 1)")]
+    d["batches"] = [g for n, t in batches if (g := _buscar_grafica(n, t))]
+    return d
+
+
+def _metricas_clasificacion() -> dict:
+    modelos, matrices = [], []
+    etiquetas = {"hog_svm": "HOG + SVM", "color_hist_rf": "Color hist + RF", "cnn": "CNN"}
+    for nombre, titulo in etiquetas.items():
+        jp = ML_REPORTS_DIR / f"{nombre}_metrics.json"
+        if jp.exists():
+            with open(jp, encoding="utf-8") as fh:
+                m = json.load(fh)
+            modelos.append({
+                "nombre": titulo,
+                "accuracy": m.get("accuracy"),
+                "macro_f1": m.get("macro_f1"),
+                "train_s": m.get("duracion_train_s"),
+                "pred_s": m.get("duracion_pred_s"),
+                "n_test": m.get("n_test"),
+            })
+        cm = ML_REPORTS_DIR / f"{nombre}_confusion_matrix.png"
+        if cm.exists():
+            matrices.append({"titulo": titulo, "url": f"/ml-img/{cm.name}"})
+
+    comparativa = None
+    if (ML_REPORTS_DIR / "comparison.png").exists():
+        comparativa = "/ml-img/comparison.png"
+    return {"modelos": modelos, "matrices": matrices, "comparativa": comparativa}
+
+
+@app.get("/metricas")
+def metricas():
+    """Números y gráficas de los dos modelos, para la pestaña de métricas."""
+    return {"deteccion": _metricas_deteccion(),
+            "clasificacion": _metricas_clasificacion()}
 
 
 if __name__ == "__main__":

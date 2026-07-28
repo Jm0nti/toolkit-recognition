@@ -194,6 +194,76 @@
   .hcard .meta{padding:8px 10px;display:flex;justify-content:space-between;align-items:center;gap:6px}
   .hcard .obj{font-family:"Saira Condensed",sans-serif;font-weight:700;font-size:15px;letter-spacing:.03em}
   .hcard .fh{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--grafito)}
+
+  /* ── pestañas de navegación ── */
+  .tabs{
+    max-width:1100px;margin:14px auto 0;padding:0 24px;
+    display:flex;gap:8px;border-bottom:1px solid var(--linea);
+  }
+  .tab{
+    font-family:"Saira Condensed",sans-serif;font-weight:700;font-size:17px;
+    letter-spacing:.05em;text-transform:uppercase;
+    background:none;border:none;color:var(--grafito);cursor:pointer;
+    padding:12px 18px;border-bottom:3px solid transparent;margin-bottom:-1px;
+  }
+  .tab:hover{color:var(--crema)}
+  .tab.activa{color:var(--cinta);border-bottom-color:var(--cinta)}
+  .tab:focus-visible{outline:2px solid var(--crema);outline-offset:2px}
+
+  /* ── vista de métricas ── */
+  .bloque-metricas{margin-top:8px}
+  .bloque-metricas h2{
+    font-family:"Saira Condensed",sans-serif;font-weight:800;font-size:26px;
+    text-transform:uppercase;letter-spacing:.03em;margin:26px 0 4px;
+  }
+  .bloque-metricas h2 .fina{color:var(--grafito);font-weight:500}
+  .bloque-metricas p.desc{color:var(--grafito);margin-bottom:16px;max-width:70ch}
+
+  /* tarjetas de números grandes */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:8px}
+  .stat{
+    background:var(--acero-panel);border:1px solid var(--linea);
+    border-left:5px solid var(--cinta);border-radius:8px;padding:16px 18px;
+  }
+  .stat .num{font-family:"Saira Condensed",sans-serif;font-weight:800;font-size:38px;line-height:1;color:var(--crema)}
+  .stat .lbl{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--grafito);margin-top:6px;text-transform:uppercase;letter-spacing:.05em}
+  .stat.meta{border-left-color:var(--rojo-caja)}
+
+  /* tabla comparativa */
+  .tabla-wrap{overflow-x:auto;border:1px solid var(--linea);border-radius:8px;margin-bottom:8px}
+  table.cmp{border-collapse:collapse;width:100%;min-width:520px;font-size:14px}
+  table.cmp th,table.cmp td{padding:10px 14px;text-align:right;border-bottom:1px solid var(--linea)}
+  table.cmp th:first-child,table.cmp td:first-child{text-align:left}
+  table.cmp thead th{
+    font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--cinta);
+    text-transform:uppercase;letter-spacing:.05em;background:var(--acero-panel);
+  }
+  table.cmp td{font-family:"IBM Plex Mono",monospace;color:var(--crema)}
+  table.cmp td.nombre{font-family:"Saira Condensed",sans-serif;font-weight:700;font-size:16px;letter-spacing:.03em}
+  table.cmp tr.top td{color:var(--cinta)}
+
+  /* galería de gráficas */
+  .galeria{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+  .grafica{
+    background:var(--acero-panel);border:1px solid var(--linea);border-radius:8px;
+    overflow:hidden;cursor:zoom-in;padding:0;text-align:left;color:inherit;
+    transition:border-color .15s,transform .15s;
+  }
+  .grafica:hover,.grafica:focus-visible{border-color:var(--cinta);transform:translateY(-2px);outline:none}
+  .grafica img{width:100%;display:block;background:#fff}
+  .grafica .cap{padding:8px 10px;font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--grafito)}
+
+  /* lightbox para ver la gráfica en grande */
+  .lightbox{
+    position:fixed;inset:0;background:rgba(10,15,20,.92);z-index:50;
+    display:none;align-items:center;justify-content:center;padding:30px;cursor:zoom-out;
+  }
+  .lightbox.abierto{display:flex}
+  .lightbox img{max-width:95vw;max-height:92vh;border-radius:8px;background:#fff}
+  .lightbox .cerrar{
+    position:absolute;top:18px;right:24px;font-size:34px;color:var(--crema);
+    background:none;border:none;cursor:pointer;line-height:1;
+  }
 </style>
 </head>
 <body>
@@ -207,7 +277,12 @@
   herramienta que reconoce, con su nivel de confianza.</p>
 </header>
 
-<main>
+<nav class="tabs" aria-label="Secciones">
+  <button class="tab activa" id="tab-detector" aria-controls="vista-detector">Detector</button>
+  <button class="tab" id="tab-metricas" aria-controls="vista-metricas">Métricas del modelo</button>
+</nav>
+
+<main id="vista-detector">
   <section class="pegboard">
     <!-- zona de soltar: el hueco de la herramienta que falta en el tablero -->
     <div class="zona" id="zona" tabindex="0" role="button"
@@ -253,6 +328,29 @@
     <div class="hgrid" id="hgrid"></div>
   </section>
 </main>
+
+<main id="vista-metricas" hidden>
+  <div class="bloque-metricas">
+    <h2>Detección <span class="fina">· YOLOv8</span></h2>
+    <p class="desc">Resultados del modelo de detección tras el fine-tuning
+    (última época sobre el split de validación).</p>
+    <div class="stats" id="stats-det"></div>
+    <div class="galeria" id="gal-det"></div>
+  </div>
+
+  <div class="bloque-metricas">
+    <h2>Clasificación <span class="fina">· 3 modelos ML</span></h2>
+    <p class="desc">Recortes de cada herramienta clasificados con tres métodos:
+    dos clásicos (HOG+SVM, histograma de color+RandomForest) y una CNN.</p>
+    <div class="tabla-wrap"><table class="cmp" id="tabla-cls"></table></div>
+    <div class="galeria" id="gal-cls"></div>
+  </div>
+</main>
+
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Gráfica ampliada">
+  <button class="cerrar" id="lbCerrar" aria-label="Cerrar">×</button>
+  <img id="lbImg" alt="">
+</div>
 
 <footer>
   <span>Detección de herramientas manuales · caja desordenada, oclusión parcial</span>
@@ -392,6 +490,102 @@
   }
 
   cargarHistorial();  // al abrir la pagina
+
+  // ── Pestañas ───────────────────────────────────────────────
+  const tabDet = document.getElementById('tab-detector');
+  const tabMet = document.getElementById('tab-metricas');
+  const vistaDet = document.getElementById('vista-detector');
+  const vistaMet = document.getElementById('vista-metricas');
+  let metricasCargadas = false;
+
+  function activar(tab) {
+    const met = tab === 'metricas';
+    tabMet.classList.toggle('activa', met);
+    tabDet.classList.toggle('activa', !met);
+    vistaMet.hidden = !met;
+    vistaDet.hidden = met;
+    if (met && !metricasCargadas) { cargarMetricas(); metricasCargadas = true; }
+  }
+  tabDet.addEventListener('click', () => activar('detector'));
+  tabMet.addEventListener('click', () => activar('metricas'));
+
+  // ── Métricas ───────────────────────────────────────────────
+  const pct = v => (v == null ? '—' : (v * 100).toFixed(1) + '%');
+  const seg = v => (v == null ? '—' : v.toFixed(1) + ' s');
+
+  async function cargarMetricas() {
+    let m;
+    try {
+      m = await (await fetch('/metricas')).json();
+    } catch (e) {
+      document.getElementById('stats-det').innerHTML =
+        '<div class="vacio">No pude cargar las métricas.</div>';
+      return;
+    }
+    pintarDeteccion(m.deteccion);
+    pintarClasificacion(m.clasificacion);
+  }
+
+  function pintarDeteccion(d) {
+    const stats = [
+      { num: pct(d.map50), lbl: 'mAP@0.5', meta: true },
+      { num: pct(d.map5095), lbl: 'mAP@0.5:0.95' },
+      { num: pct(d.precision), lbl: 'Precisión' },
+      { num: pct(d.recall), lbl: 'Recall' },
+      { num: d.epochs ?? '—', lbl: 'Épocas' },
+    ];
+    document.getElementById('stats-det').innerHTML = stats.map(s =>
+      `<div class="stat ${s.meta ? 'meta' : ''}">
+         <div class="num">${s.num}</div><div class="lbl">${s.lbl}</div>
+       </div>`).join('');
+    document.getElementById('gal-det').innerHTML =
+      [...d.curvas, ...d.batches].map(grafica).join('');
+  }
+
+  function pintarClasificacion(c) {
+    // el mejor accuracy se resalta
+    const mejor = Math.max(...c.modelos.map(m => m.accuracy ?? 0));
+    const filas = c.modelos.map(m => `
+      <tr class="${m.accuracy === mejor ? 'top' : ''}">
+        <td class="nombre">${m.nombre}</td>
+        <td>${pct(m.accuracy)}</td>
+        <td>${pct(m.macro_f1)}</td>
+        <td>${m.n_test ?? '—'}</td>
+        <td>${seg(m.train_s)}</td>
+        <td>${seg(m.pred_s)}</td>
+      </tr>`).join('');
+    document.getElementById('tabla-cls').innerHTML = `
+      <thead><tr>
+        <th>Modelo</th><th>Accuracy</th><th>Macro-F1</th>
+        <th>N test</th><th>Train</th><th>Predic.</th>
+      </tr></thead><tbody>${filas}</tbody>`;
+
+    const gal = c.matrices.slice();
+    if (c.comparativa) gal.push({ titulo: 'Comparativa', url: c.comparativa });
+    document.getElementById('gal-cls').innerHTML = gal.map(grafica).join('');
+  }
+
+  // una tarjeta de gráfica (abre lightbox al hacer clic)
+  function grafica(g) {
+    return `<button class="grafica" data-url="${g.url}">
+      <img src="${g.url}" alt="${g.titulo}" loading="lazy">
+      <div class="cap">${g.titulo}</div>
+    </button>`;
+  }
+
+  // ── Lightbox ───────────────────────────────────────────────
+  const lb = document.getElementById('lightbox');
+  const lbImg = document.getElementById('lbImg');
+  document.getElementById('vista-metricas').addEventListener('click', e => {
+    const b = e.target.closest('.grafica');
+    if (!b) return;
+    lbImg.src = b.dataset.url;
+    lb.classList.add('abierto');
+  });
+  const cerrarLb = () => lb.classList.remove('abierto');
+  lb.addEventListener('click', cerrarLb);
+  document.getElementById('lbCerrar').addEventListener('click', cerrarLb);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarLb(); });
 </script>
 </body>
 </html>

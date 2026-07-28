@@ -35,6 +35,8 @@ def main() -> None:
     ap.add_argument("--epochs", type=int, default=30)
     ap.add_argument("--model_size", type=str, default="n",
                     help="n (nano, rápido) o s (small, más preciso)")
+    ap.add_argument("--imgsz", type=int, default=640,
+                    help="tamaño de imagen; 480 entrena casi el doble de rápido")
     args = ap.parse_args()
 
     if not DATA_YAML.exists():
@@ -45,6 +47,7 @@ def main() -> None:
     train(dataset_yaml=str(DATA_YAML),
           model_size=args.model_size,
           epochs=args.epochs,
+          imgsz=args.imgsz,
           name="real6",
           output_weights=str(DESTINO))
 

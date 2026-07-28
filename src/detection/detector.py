@@ -72,7 +72,7 @@ def _color_para_clase(class_id):
 # ENTRENAMIENTO
 
 def train(dataset_yaml="data.yaml", model_size="n", epochs=100,
-          project=None, name="tools", output_weights=None):
+          project=None, name="tools", output_weights=None, imgsz=640):
     """
     Fine-tuning de YOLOv8 sobre el dataset. Devuelve un dict de metricas.
     Hiperparametros optimizados para RTX 4050 4GB VRAM + dataset pequeno.
@@ -100,7 +100,7 @@ def train(dataset_yaml="data.yaml", model_size="n", epochs=100,
         box=7.5,
         cls=0.5,
         patience=20,
-        imgsz=640,
+        imgsz=imgsz,
         augment=False,      # usamos nuestro propio augmentation
         device=device,
         project=project,

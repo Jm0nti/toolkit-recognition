@@ -22,6 +22,7 @@ outputs/predicciones/
 
 # Modelos entrenados (se regeneran)
 models/detection/*.pt
+models/detection/**/*.pt
 models/classification/*.joblib
 models/classification/*.pt
 
@@ -39,6 +40,9 @@ yolov8n.pt
 # Config del editor y fotos de prueba locales (no van al repo)
 .vscode/
 img-test/
+.agents/
+.claude copy/
+.claude/
 
 # Dataset masivo descargado (se regenera con run_dataset_masivo.py)
 data/masivo/

@@ -97,8 +97,12 @@ def main() -> None:
         if sp in por_split:
             por_split[sp].append(r)
     if args.limit:
+        # muestra proporcionada: --limit manda en train, val y test van más chicos
+        topes = {"train": args.limit,
+                 "val": max(50, args.limit // 4),
+                 "test": max(25, args.limit // 8)}
         for sp in por_split:
-            por_split[sp] = por_split[sp][:args.limit]
+            por_split[sp] = por_split[sp][:topes[sp]]
 
     total_ok, total_fail = 0, 0
     for sp, regs in por_split.items():

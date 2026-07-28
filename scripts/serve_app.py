@@ -33,10 +33,6 @@ from src.paths import (  # noqa: E402
     DETECTION_MODELS, OUTPUTS_DIR, PREDICTIONS_DIR, RUNS_DIR, WEB_DIR,
 )
 
-# usa models/detection/best.pt si existe; si no, el best.pt del entrenamiento
-MODEL_PATH = str(DETECTION_MODELS / "best.pt")
-if not os.path.exists(MODEL_PATH):
-    MODEL_PATH = str(RUNS_DIR / "tools" / "weights" / "best.pt")
 SALIDA_DIR = str(PREDICTIONS_DIR)
 os.makedirs(SALIDA_DIR, exist_ok=True)
 
@@ -57,48 +53,69 @@ for _url, _carpeta in [("/metricas-img", METRICAS_DIR),
     if _carpeta.exists():
         app.mount(_url, StaticFiles(directory=str(_carpeta)), name=_url.strip("/"))
 
-# el modelo se carga una sola vez, en la primera peticion
-_modelo = None
-_device = None
+# ── Registro de modelos ─────────────────────────────────────
+# Cada modelo entrenado se ofrece en la página para poder compararlos.
+# Solo aparecen los best.pt que existen en disco.
+def _candidatos_modelos():
+    cands = [
+        ("mio", "El mío · 10 clases", RUNS_TOOLS_DIR / "weights" / "best.pt"),
+        ("real6", "6-tool · dataset real", DETECTION_MODELS / "real6" / "best.pt"),
+    ]
+    listados = {c[0] for c in cands}
+    # además cualquier otro models/detection/<nombre>/best.pt
+    if DETECTION_MODELS.exists():
+        for sub in sorted(DETECTION_MODELS.iterdir()):
+            w = sub / "best.pt"
+            if sub.is_dir() and w.exists() and sub.name not in listados:
+                cands.append((sub.name, sub.name, w))
+    return [(i, lbl, p) for i, lbl, p in cands if p.exists()]
 
 
-def cargar_modelo():
-    global _modelo, _device
-    if _modelo is not None:
-        return _modelo
+_modelos_cache = {}   # id -> (YOLO, device)
 
+
+def cargar_modelo(model_id=None):
+    """Devuelve (id, modelo, device). Carga y cachea el modelo pedido.
+
+    Si no existe ningún modelo, devuelve (None, None, None).
+    """
+    cands = _candidatos_modelos()
+    if not cands:
+        return None, None, None
+    ids = [c[0] for c in cands]
+    if model_id not in ids:
+        model_id = ids[0]                 # por defecto, el primero (el mío)
+    if model_id in _modelos_cache:
+        modelo, device = _modelos_cache[model_id]
+        return model_id, modelo, device
+
+    ruta = next(p for i, _, p in cands if i == model_id)
     from ultralytics import YOLO
     import torch
 
-    _modelo = YOLO(MODEL_PATH)
-    _device = _detectar_dispositivo()
+    modelo = YOLO(str(ruta))
+    device = _detectar_dispositivo()
 
-    # Permite forzar CPU vía env var (útil si la VRAM está ocupada por
-    # otro proceso: entrenamientos abiertos, navegador, IDE, etc.)
+    # Permite forzar CPU vía env var (VRAM ocupada por otro proceso, etc.)
     if os.environ.get("FORCE_CPU", "").lower() in ("1", "true", "yes"):
-        _device = "cpu"
-        print("[INFO] FORCE_CPU=1 -> inferencia en CPU.")
-        return _modelo
-
-    # Intento de warm-up en el device elegido: si la GPU está sin VRAM
-    # libre, hago fallback a CPU sin romper el request.
-    if _device == "cuda":
+        device = "cpu"
+    elif device == "cuda":
+        # warm-up: si la GPU no tiene VRAM libre, caigo a CPU sin romper
         try:
-            _modelo.to("cuda")
-            # ping mínimo para provocar la asignación real de VRAM
-            dummy = np.zeros((32, 32, 3), dtype=np.uint8)
-            _modelo.predict(source=dummy, device="cuda", verbose=False)
-            print("[INFO] Modelo cargado en GPU (cuda).")
+            modelo.to("cuda")
+            modelo.predict(source=np.zeros((32, 32, 3), dtype=np.uint8),
+                           device="cuda", verbose=False)
         except (torch.cuda.OutOfMemoryError, RuntimeError) as exc:
             if "out of memory" in str(exc).lower():
-                print(f"[AVISO] GPU sin VRAM disponible ({exc.__class__.__name__}). "
-                      f"Cayendo a CPU. Cierra otros procesos con nvidia-smi si quieres GPU.")
                 torch.cuda.empty_cache()
-                _device = "cpu"
-                _modelo = YOLO(MODEL_PATH)  # recargar limpio en CPU
+                device = "cpu"
+                modelo = YOLO(str(ruta))
             else:
                 raise
-    return _modelo
+
+    _modelos_cache[model_id] = (modelo, device)
+    print(f"[INFO] modelo '{model_id}' cargado ({ruta}) en {device}.")
+    return model_id, modelo, device
 
 
 @app.get("/")
@@ -107,16 +124,22 @@ def inicio():
 
 
 @app.post("/detectar")
-async def detectar(imagen: UploadFile = File(...), conf: float = 0.4):
+async def detectar(imagen: UploadFile = File(...), conf: float = 0.4,
+                   modelo: str = None):
     datos = await imagen.read()
     arr = cv2.imdecode(np.frombuffer(datos, np.uint8), cv2.IMREAD_COLOR)
     if arr is None:
         return JSONResponse({"error": "No pude leer la imagen."}, status_code=400)
 
-    modelo = cargar_modelo()
+    mid, red, device = cargar_modelo(modelo)
+    if red is None:
+        return JSONResponse(
+            {"error": "No hay ningún modelo disponible. Entrena o coloca un best.pt."},
+            status_code=503)
+
     t0 = time.time()
-    resultados = modelo.predict(source=arr, conf=conf, iou=0.5,
-                                device=_device, verbose=False)
+    resultados = red.predict(source=arr, conf=conf, iou=0.5,
+                             device=device, verbose=False)
     tiempo_ms = int((time.time() - t0) * 1000)
 
     res = resultados[0]
@@ -156,6 +179,7 @@ async def detectar(imagen: UploadFile = File(...), conf: float = 0.4):
         "conteo": conteo,
         "tiempo_ms": tiempo_ms,
         "fecha": time.strftime("%d/%m/%Y %H:%M"),
+        "modelo": mid,
     }
     with open(os.path.join(SALIDA_DIR, base + ".json"), "w", encoding="utf-8") as fh:
         json.dump(registro, fh, ensure_ascii=False)
@@ -166,6 +190,12 @@ async def detectar(imagen: UploadFile = File(...), conf: float = 0.4):
 
     return {**registro, "imagen": inmediata,
             "guardada_en": os.path.join(SALIDA_DIR, base + ".jpg")}
+
+
+@app.get("/modelos")
+def modelos():
+    """Modelos de detección disponibles para el selector de la página."""
+    return {"modelos": [{"id": i, "nombre": lbl} for i, lbl, _ in _candidatos_modelos()]}
 
 
 @app.get("/historial")

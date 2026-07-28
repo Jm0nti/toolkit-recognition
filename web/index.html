@@ -103,6 +103,12 @@
   .conf{display:flex;align-items:center;gap:12px;color:var(--grafito);font-size:14px;white-space:nowrap}
   .conf input{accent-color:var(--cinta)}
   .conf output{font-family:"IBM Plex Mono",monospace;color:var(--crema)}
+  .conf select{
+    font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--crema);
+    background:var(--acero-panel);border:1px solid var(--linea);
+    border-radius:6px;padding:6px 10px;cursor:pointer;
+  }
+  .conf select:focus-visible{outline:2px solid var(--cinta);outline-offset:2px}
 
   /* resultados */
   #resultados{display:none;margin-top:26px;gap:26px;grid-template-columns:1.6fr 1fr;align-items:start}
@@ -337,6 +343,9 @@
       <label class="conf">Confianza mínima
         <input type="range" id="conf" min="0.1" max="0.9" step="0.05" value="0.4">
         <output id="confVal">0.40</output>
+      </label>
+      <label class="conf" id="selModeloWrap" hidden>Modelo
+        <select id="selModelo"></select>
       </label>
       <input type="file" id="archivo" accept="image/*" hidden>
     </div>
@@ -595,6 +604,17 @@
 
   conf.addEventListener('input', () => confVal.textContent = Number(conf.value).toFixed(2));
 
+  // selector de modelo: solo se muestra si hay más de uno disponible
+  const selModelo = document.getElementById('selModelo');
+  (async () => {
+    try {
+      const j = await (await fetch('/modelos')).json();
+      const ms = j.modelos || [];
+      selModelo.innerHTML = ms.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
+      if (ms.length > 1) document.getElementById('selModeloWrap').hidden = false;
+    } catch (e) { /* sin servidor no hay selector */ }
+  })();
+
   // las tres formas de entrar: clic, arrastrar y pegar
   zona.addEventListener('click', () => archivo.click());
   zona.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') archivo.click(); });
@@ -625,7 +645,8 @@
     datos.append('imagen', f);
 
     try {
-      const r = await fetch(`/detectar?conf=${conf.value}`, { method: 'POST', body: datos });
+      const modelo = selModelo.value ? `&modelo=${selModelo.value}` : '';
+      const r = await fetch(`/detectar?conf=${conf.value}${modelo}`, { method: 'POST', body: datos });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || 'Error del servidor');
       mostrar(j);
@@ -640,7 +661,8 @@
   function mostrar(j) {
     estado.textContent = '';
     document.getElementById('imgSalida').src = j.imagen;
-    document.getElementById('metaTiempo').textContent = `inferencia: ${j.tiempo_ms} ms`;
+    document.getElementById('metaTiempo').textContent =
+      `inferencia: ${j.tiempo_ms} ms` + (j.modelo ? ` · modelo: ${j.modelo}` : '');
     document.getElementById('metaRuta').textContent =
       j.guardada_en ? `guardada en ${j.guardada_en}` : (j.fecha || '');
     document.getElementById('total').textContent =

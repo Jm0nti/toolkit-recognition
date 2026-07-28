@@ -39,3 +39,6 @@ yolov8n.pt
 # Config del editor y fotos de prueba locales (no van al repo)
 .vscode/
 img-test/
+
+# Dataset masivo descargado (se regenera con run_dataset_masivo.py)
+data/masivo/

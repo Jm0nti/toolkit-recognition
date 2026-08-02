@@ -103,6 +103,12 @@
   .conf{display:flex;align-items:center;gap:12px;color:var(--grafito);font-size:14px;white-space:nowrap}
   .conf input{accent-color:var(--cinta)}
   .conf output{font-family:"IBM Plex Mono",monospace;color:var(--crema)}
+  .conf select{
+    font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--crema);
+    background:var(--acero-panel);border:1px solid var(--linea);
+    border-radius:6px;padding:6px 10px;cursor:pointer;
+  }
+  .conf select:focus-visible{outline:2px solid var(--cinta);outline-offset:2px}
 
   /* resultados */
   #resultados{display:none;margin-top:26px;gap:26px;grid-template-columns:1.6fr 1fr;align-items:start}
@@ -194,6 +200,165 @@
   .hcard .meta{padding:8px 10px;display:flex;justify-content:space-between;align-items:center;gap:6px}
   .hcard .obj{font-family:"Saira Condensed",sans-serif;font-weight:700;font-size:15px;letter-spacing:.03em}
   .hcard .fh{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--grafito)}
+
+  /* ── pestañas de navegación ── */
+  .tabs{
+    max-width:1100px;margin:14px auto 0;padding:0 24px;
+    display:flex;gap:8px;border-bottom:1px solid var(--linea);
+  }
+  .tab{
+    font-family:"Saira Condensed",sans-serif;font-weight:700;font-size:17px;
+    letter-spacing:.05em;text-transform:uppercase;
+    background:none;border:none;color:var(--grafito);cursor:pointer;
+    padding:12px 18px;border-bottom:3px solid transparent;margin-bottom:-1px;
+  }
+  .tab:hover{color:var(--crema)}
+  .tab.activa{color:var(--cinta);border-bottom-color:var(--cinta)}
+  .tab:focus-visible{outline:2px solid var(--crema);outline-offset:2px}
+
+  /* ── vista de métricas ── */
+  .bloque-metricas{margin-top:8px}
+  .bloque-metricas h2{
+    font-family:"Saira Condensed",sans-serif;font-weight:800;font-size:26px;
+    text-transform:uppercase;letter-spacing:.03em;margin:26px 0 4px;
+  }
+  .bloque-metricas h2 .fina{color:var(--grafito);font-weight:500}
+  .bloque-metricas p.desc{color:var(--grafito);margin-bottom:16px;max-width:70ch}
+
+  /* tarjetas de números grandes */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:8px}
+  .stat{
+    background:var(--acero-panel);border:1px solid var(--linea);
+    border-left:5px solid var(--cinta);border-radius:8px;padding:16px 18px;
+  }
+  .stat .num{font-family:"Saira Condensed",sans-serif;font-weight:800;font-size:38px;line-height:1;color:var(--crema)}
+  .stat .lbl{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--grafito);margin-top:6px;text-transform:uppercase;letter-spacing:.05em}
+  .stat.meta{border-left-color:var(--rojo-caja)}
+
+  /* tabla comparativa */
+  .tabla-wrap{overflow-x:auto;border:1px solid var(--linea);border-radius:8px;margin-bottom:8px}
+  table.cmp{border-collapse:collapse;width:100%;min-width:520px;font-size:14px}
+  table.cmp th,table.cmp td{padding:10px 14px;text-align:right;border-bottom:1px solid var(--linea)}
+  table.cmp th:first-child,table.cmp td:first-child{text-align:left}
+  table.cmp thead th{
+    font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--cinta);
+    text-transform:uppercase;letter-spacing:.05em;background:var(--acero-panel);
+  }
+  table.cmp td{font-family:"IBM Plex Mono",monospace;color:var(--crema)}
+  table.cmp td.nombre{font-family:"Saira Condensed",sans-serif;font-weight:700;font-size:16px;letter-spacing:.03em}
+  table.cmp tr.top td{color:var(--cinta)}
+
+  /* galería de gráficas */
+  .galeria{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+  .grafica{
+    background:var(--acero-panel);border:1px solid var(--linea);border-radius:8px;
+    overflow:hidden;cursor:zoom-in;padding:0;text-align:left;color:inherit;
+    transition:border-color .15s,transform .15s;
+  }
+  .grafica:hover,.grafica:focus-visible{border-color:var(--cinta);transform:translateY(-2px);outline:none}
+  .grafica img{width:100%;display:block;background:#fff}
+  .grafica .cap{padding:8px 10px;font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--grafito)}
+
+  /* lightbox para ver la gráfica en grande */
+  .lightbox{
+    position:fixed;inset:0;background:rgba(10,15,20,.92);z-index:50;
+    display:none;align-items:center;justify-content:center;padding:30px;cursor:zoom-out;
+  }
+  .lightbox.abierto{display:flex}
+  .lightbox img{max-width:95vw;max-height:92vh;border-radius:8px;background:#fff}
+  .lightbox .cerrar{
+    position:absolute;top:18px;right:24px;font-size:34px;color:var(--crema);
+    background:none;border:none;cursor:pointer;line-height:1;
+  }
+
+  /* ── vista "El proyecto" (recorrido por la rúbrica) ── */
+  #vista-proyecto .intro-proyecto{
+    color:var(--grafito);max-width:75ch;margin:12px 0 6px;
+  }
+  .etapa{
+    background:var(--acero-claro);border:1px solid var(--linea);
+    border-radius:12px;padding:22px 24px;margin-top:20px;
+  }
+  .etapa-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:12px;margin-bottom:10px}
+  .etapa-head h2{
+    font-family:"Saira Condensed",sans-serif;font-weight:800;font-size:30px;
+    text-transform:uppercase;letter-spacing:.02em;
+  }
+  .chip{
+    font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.06em;
+    text-transform:uppercase;color:#1c1c1c;background:var(--cinta);
+    padding:4px 10px;border-radius:20px;white-space:nowrap;
+  }
+  .etapa-body{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
+  @media (max-width:900px){.etapa-body{grid-template-columns:1fr}}
+  .etapa-texto p{margin-bottom:12px;line-height:1.55}
+  .etapa-texto .puntos{margin:14px 0 6px;padding-left:20px}
+  .etapa-texto .puntos li{margin-bottom:7px;color:var(--crema);line-height:1.45}
+  .archivos{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .archivos code{
+    font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--cinta);
+    background:var(--acero-panel);border:1px solid var(--linea);
+    border-radius:5px;padding:3px 8px;
+  }
+  .evi{display:flex;flex-direction:column;gap:12px;position:sticky;top:16px}
+  .evi:empty{display:none}
+  .evi .grafica{width:100%}
+  @media (max-width:900px){.evi{position:static}}
+  /* etapa sin evidencia: el texto ocupa todo el ancho */
+  .etapa-body:has(.evi:empty){grid-template-columns:1fr}
+
+  /* ── rediseño industrial: numerales y texto plegable ── */
+  .tab .tnum{
+    font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--cinta);
+    margin-right:6px;opacity:.85;
+  }
+  .etapa{position:relative;overflow:hidden}
+  .etapa .num{
+    position:absolute;top:-28px;right:6px;z-index:0;pointer-events:none;
+    font-family:"Saira Condensed",sans-serif;font-weight:800;
+    font-size:150px;line-height:1;color:var(--crema);opacity:.05;
+    letter-spacing:-.02em;
+  }
+  .etapa-head,.etapa-body{position:relative;z-index:1}
+  .etapa-head{border-bottom:1px solid var(--linea);padding-bottom:12px;margin-bottom:16px}
+
+  details.mas{margin-top:14px;border-top:1px dashed var(--linea);padding-top:10px}
+  details.mas summary{
+    font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--cinta);cursor:pointer;
+    list-style:none;display:inline-flex;align-items:center;gap:8px;
+    padding:4px 0;user-select:none;
+  }
+  details.mas summary::-webkit-details-marker{display:none}
+  details.mas summary::before{
+    content:"+";display:inline-grid;place-items:center;
+    width:18px;height:18px;border:1px solid var(--cinta);border-radius:4px;
+    font-size:13px;transition:transform .25s cubic-bezier(.16,1,.3,1);
+  }
+  details.mas[open] summary::before{transform:rotate(45deg)}
+  details.mas summary:hover{color:var(--crema)}
+  details.mas p{margin-top:12px;color:var(--grafito)}
+  details.mas p strong{color:var(--crema)}
+
+  /* ── movimiento: reveals al scroll y cambio de pestaña ── */
+  .revela{opacity:0;transform:translateY(14px)}
+  .revela.vista{
+    opacity:1;transform:none;
+    transition:opacity .5s cubic-bezier(.16,1,.3,1), transform .5s cubic-bezier(.16,1,.3,1);
+  }
+  @keyframes aparece{
+    from{opacity:0;transform:translateY(10px)}
+    to{opacity:1;transform:none}
+  }
+  main.aparece{animation:aparece .3s cubic-bezier(.16,1,.3,1)}
+  .grafica,.hcard{transition:border-color .2s ease, transform .25s cubic-bezier(.16,1,.3,1)}
+  .stat .num{transition:none}
+  @media (prefers-reduced-motion:reduce){
+    .revela{opacity:1;transform:none}
+    .revela.vista{transition:none}
+    main.aparece{animation:none}
+    details.mas summary::before{transition:none}
+  }
 </style>
 </head>
 <body>
@@ -207,7 +372,13 @@
   herramienta que reconoce, con su nivel de confianza.</p>
 </header>
 
-<main>
+<nav class="tabs" aria-label="Secciones">
+  <button class="tab activa" id="tab-proyecto" aria-controls="vista-proyecto"><span class="tnum">01</span> El proyecto</button>
+  <button class="tab" id="tab-metricas" aria-controls="vista-metricas"><span class="tnum">02</span> Métricas</button>
+  <button class="tab" id="tab-detector" aria-controls="vista-detector"><span class="tnum">03</span> Detector en vivo</button>
+</nav>
+
+<main id="vista-detector" hidden>
   <section class="pegboard">
     <!-- zona de soltar: el hueco de la herramienta que falta en el tablero -->
     <div class="zona" id="zona" tabindex="0" role="button"
@@ -227,6 +398,9 @@
       <label class="conf">Confianza mínima
         <input type="range" id="conf" min="0.1" max="0.9" step="0.05" value="0.4">
         <output id="confVal">0.40</output>
+      </label>
+      <label class="conf" id="selModeloWrap" hidden>Modelo
+        <select id="selModelo"></select>
       </label>
       <input type="file" id="archivo" accept="image/*" hidden>
     </div>
@@ -254,6 +428,242 @@
   </section>
 </main>
 
+<main id="vista-proyecto">
+  <p class="intro-proyecto">Recorrido por el pipeline completo, etapa por etapa.
+  Lo esencial a la vista; la explicación completa se despliega en cada bloque.</p>
+      <section class="etapa">
+      <div class="etapa-head">
+        <span class="num" aria-hidden="true">01</span>
+        <span class="chip">Presentación · Claridad 6%</span>
+        <h2>El problema</h2>
+      </div>
+      <div class="etapa-body">
+        <div class="etapa-texto">
+        <ul class="puntos">
+          <li>Entrada: una foto de una caja o superficie con herramientas. Salida: un inventario que dice qué herramientas hay y cuántas.</li>
+          <li>10 clases de herramientas manuales: metro, destornillador, martillo, pinzas, alicate, llave inglesa, llave combinada, brocha, espátula y llave de tubo.</li>
+          <li>El reto real de las fotos es la oclusión parcial, la superposición y los fondos metálicos con sombras y reflejos.</li>
+          <li>Caso de uso que nos motivó: inventario y control de herramienta en un taller, donde contar a mano es lento y da errores.</li>
+          <li>Nos pusimos una meta medible de detección (mAP@0.5 >= 0.75) y la superamos con mAP@0.5 = 0.943 sobre el split de test (0.954 en validación).</li>
+        </ul>
+        <div class="archivos"><code>scripts/run_pipeline.py</code><code>src/detection/detector.py</code><code>scripts/serve_app.py</code></div>
+        <details class="mas"><summary>La explicación completa</summary>
+        <p>El problema es fácil de decir y difícil de resolver: dada una foto de una caja de herramientas desordenada, queremos que el computador diga qué herramientas hay y cuántas. Como se ve en la imagen, las herramientas se tapan entre sí (oclusión parcial), se superponen y comparten un fondo metálico con sombras y reflejos. Además hay clases que se parecen mucho: unas pinzas y un alicate tienen casi la misma silueta en una foto rápida. Por eso no basta con "ver" la caja, hay que mirar herramienta por herramienta.</p>
+        <p>Esto importa por una razón práctica: el control de inventario en un taller. Contar herramientas a mano es lento y se presta a errores, y al terminar un trabajo es fácil que falte una pieza. Con una sola foto se puede saber qué hay en la caja y qué se quedó por fuera. Ese caso de uso fue el que nos motivó, y por eso elegimos 10 clases de herramientas manuales comunes: metro, destornillador, martillo, pinzas, alicate, llave inglesa, llave combinada, brocha, espátula y llave de tubo.</p>
+        <p>En una frase, el sistema toma una foto, detecta cada herramienta con su recuadro, la clasifica en una de las 10 clases y muestra el resultado como un inventario en la página web. Decidimos partir el trabajo en dos etapas (primero DÓNDE está cada herramienta y luego CUÁL es) por dos razones: así podemos medir y mejorar cada parte por separado, y porque la oclusión nos obliga a recortar y analizar cada herramienta de forma independiente en vez de mirar la caja entera de un solo golpe.</p>
+        </details>
+        </div>
+        <div class="evi" data-stage="problema"></div>
+      </div>
+    </section>
+      <section class="etapa">
+      <div class="etapa-head">
+        <span class="num" aria-hidden="true">02</span>
+        <span class="chip">Pipeline · 8%</span>
+        <h2>Adquisición de datos</h2>
+      </div>
+      <div class="etapa-body">
+        <div class="etapa-texto">
+        <ul class="puntos">
+          <li>10 clases: metro, destornillador, martillo, pinzas, alicate, llave_inglesa, llave_combinada, brocha, espatula, llave_tubo.</li>
+          <li>4 colaboradores con smartphone: 36 fotos originales con 152 herramientas anotadas -> 597 imágenes tras el aumento -> 4113 recortes para clasificación. Split 70/20/10 estratificado.</li>
+          <li>Anotación manual con polígonos de segmentación en Ultralytics, exportada como un NDJSON por cada persona.</li>
+          <li>merge_ndjson.py unifica los 4 NDJSON: remapea por NOMBRE al orden canónico, descarta clases fuera de las 10 y omite imágenes duplicadas entre personas.</li>
+          <li>Limitaciones honestas: muy pocas instancias por clase (solo 5 llaves inglesas anotadas en todo el proyecto), solo 4 personas, fondos e iluminación poco variados, y sombras/reflejos metálicos.</li>
+        </ul>
+        <div class="archivos"><code>src/data/merge_ndjson.py</code></div>
+        <details class="mas"><summary>La explicación completa</summary>
+        <p>La adquisición de datos es el punto de partida de todo el proyecto: aquí juntamos las fotos con las que después entrena el detector. Cuatro compañeros del grupo (jacob, juanl, juanma y tiago) tomamos las fotos con nuestros propios smartphones. Fotografiamos herramientas dentro de cajas y sobre superficies, a propósito con oclusión parcial, piezas superpuestas y fondos distintos. Lo hicimos así para que el modelo viera desde el principio las condiciones difíciles reales, y no solo herramientas perfectas y aisladas.</p>
+        <p>Trabajamos con 10 clases de herramientas manuales. Cada uno anotó sus propias fotos a mano en la plataforma Ultralytics, dibujando polígonos de segmentación sobre cada herramienta. Elegimos polígonos y no solo cajas porque marcan la silueta exacta de la pieza, que es lo que después aprovechamos en detección y en la segmentación. Cada persona exportó su trabajo como un archivo NDJSON, o sea un archivo por colaborador.</p>
+        <p>El problema es que esos cuatro archivos no encajaban directamente: cada persona tenía sus clases en distinto orden y a veces con clases de más. Por eso escribimos merge_ndjson.py, que unifica todo en un solo archivo. La decisión clave es que remapea las clases por NOMBRE y no por índice: el 'martillo' de uno y el 'martillo' de otro pueden tener números diferentes, pero el nombre siempre es el mismo, así que nos guiamos por el nombre para llevar todo a un orden canónico único. Además descarta las clases que no están en nuestro set de 10 y omite imágenes repetidas entre personas, para no meter ruido ni datos duplicados.</p>
+        <p>Somos honestos con las limitaciones, porque marcan lo que el modelo puede y no puede hacer. Tenemos pocas imágenes por clase, solo 4 personas tomaron las fotos, y los fondos y la iluminación no son muy variados. Encima las herramientas metálicas generan sombras y reflejos que confunden. Como se ve en el montaje con una foto de cada colaborador, el dataset es real pero limitado, y eso explica por qué después el modelo se degrada con fotos muy distintas a las nuestras.</p>
+        </details>
+        </div>
+        <div class="evi" data-stage="adquisicion"></div>
+      </div>
+    </section>
+      <section class="etapa">
+      <div class="etapa-head">
+        <span class="num" aria-hidden="true">03</span>
+        <span class="chip">Pipeline · 10%</span>
+        <h2>Preprocesamiento</h2>
+      </div>
+      <div class="etapa-body">
+        <div class="etapa-texto">
+        <ul class="puntos">
+          <li>Gris + resize_pad a 128x128 con relleno negro: tamaño fijo sin deformar la herramienta, justo lo que necesita HOG después.</li>
+          <li>HSV en lugar de RGB: el canal H (matiz) casi no cambia con la luz, más robusto a sombras y reflejos metálicos que trabajar en color RGB.</li>
+          <li>Bordes por dos vías: Canny (con desenfoque previo, low=80/high=180) para bordes finos y limpios, y Sobel para la magnitud del gradiente; ambos capturan la forma.</li>
+          <li>Aumento con Albumentations: factor 12 + 30% de mosaicos lleva de 36 a 597 imágenes, salida tamaño 640 en formato YOLO.</li>
+          <li>Las transforms cubren los 3 problemas reales: ángulo (geométricas), luz de taller (fotométricas + CLAHE), oclusión/superposición (CoarseDropout + mosaico); min_visibility=0.4 descarta cajas que quedan casi tapadas.</li>
+        </ul>
+        <div class="archivos"><code>src/classification/preprocessing.py</code><code>src/detection/augmentation_pipeline.py</code></div>
+        <details class="mas"><summary>La explicación completa</summary>
+        <p>El preprocesamiento tiene dos partes. La primera trabaja sobre cada recorte que devuelve el detector: antes de sacar características, preparamos la imagen de la herramienta. Convertimos a gris, separamos los canales HSV, sacamos bordes con Canny y Sobel, y ajustamos el tamaño con resize_pad. La segunda parte es el aumento de datos, que corre antes de entrenar y lleva nuestras pocas fotos originales a un dataset mucho más grande.</p>
+        <p>Cada paso resuelve un problema concreto. El gris quita el color y deja solo la intensidad; es la base para los bordes y para HOG. Pasamos a HSV en vez de quedarnos en RGB porque HSV separa el color (matiz) de la iluminación (valor): el canal H casi no cambia si hay más o menos luz, así que es más robusto en un taller con sombras y reflejos metálicos, como se ve en la imagen del canal H. Canny y Sobel resaltan la silueta, que es lo que más distingue una llave de un martillo; a Canny le metemos un desenfoque previo para no captar el ruido del sensor del celular. Por último, resize_pad lleva todo a 128x128 rellenando con negro y conservando el aspecto, para no deformar la herramienta y darle a HOG un tamaño fijo.</p>
+        <p>El aumento de datos es clave porque teníamos muy pocas fotos (36, con 152 herramientas anotadas en total). Con tan pocos datos el modelo memoriza y no generaliza. Usamos Albumentations con factor 12 (12 versiones por foto original) más un 30% de mosaicos, y así pasamos de 36 a 597 imágenes. La idea es mostrarle la misma herramienta en muchas condiciones distintas sin tener que salir a tomar más fotos. Eso sí, somos conscientes del límite: el aumento multiplica las imágenes pero no añade información nueva, porque siguen siendo las mismas herramientas en el mismo cuarto.</p>
+        <p>Elegimos las transformaciones pensando en los problemas reales del proyecto. Las geométricas (giros, flips, rotación hasta 45 grados) porque las fotos son cenitales y la herramienta puede estar en cualquier ángulo. Las fotométricas (brillo/contraste, HueSaturationValue, CLAHE) para simular la luz cambiante del taller. El ruido y el blur (GaussNoise, MotionBlur, GaussianBlur, compresión) para imitar el sensor del smartphone. Y CoarseDropout tapa parches al azar para enseñar oclusión y superposición. Los mosaicos juntan 4 fotos en una para que el modelo vea varias herramientas a la vez, como en una caja real.</p>
+        </details>
+        </div>
+        <div class="evi" data-stage="preprocesamiento"></div>
+      </div>
+    </section>
+      <section class="etapa">
+      <div class="etapa-head">
+        <span class="num" aria-hidden="true">04</span>
+        <span class="chip">Pipeline · 15%</span>
+        <h2>Segmentación</h2>
+      </div>
+      <div class="etapa-body">
+        <div class="etapa-texto">
+        <ul class="puntos">
+          <li>Segmentación de producción: polígonos anotados a mano en Ultralytics + detección aprendida de YOLO. Se eligió por soportar oclusión, superposición y fondos variados.</li>
+          <li>Otsu (mask_otsu): umbral global de Otsu sobre gris + limpieza morfológica open/close. Rápido, pero solo sirve con fondo uniforme y contrastado; se degrada con sombras o fondos oscuros.</li>
+          <li>GrabCut (mask_grabcut): se inicializa con el bounding box de YOLO, marca lo de afuera como fondo y recorta la silueta adentro. Funciona en fondos difíciles pero depende del bbox.</li>
+          <li>overlay_mask: pinta la máscara semitransparente y dibuja su contorno para poder comparar a simple vista.</li>
+          <li>Evidencia: 8 tiras comparativas en outputs/segmentacion/, cada una con original | máscara Otsu | overlay Otsu | overlay GrabCut.</li>
+        </ul>
+        <div class="archivos"><code>src/classification/segmentation.py</code><code>scripts/run_segmentation_demo.py</code></div>
+        <details class="mas"><summary>La explicación completa</summary>
+        <p>La segmentación es separar la herramienta del fondo, decir qué píxeles son objeto y cuáles no. En nuestro proyecto la segmentación "de verdad", la que usamos en producción, sale de dos cosas: los polígonos que dibujamos a mano al anotar y la detección aprendida de YOLO. Anotamos con polígonos (no solo cajas) en Ultralytics, y con esas formas el detector aprende dónde está cada herramienta. Elegimos este camino porque es el que aguanta cajas con muchas herramientas, oclusión y fondos variados, que es justo nuestro problema.</p>
+        <p>Aun así probamos también dos métodos clásicos para comparar y entender el problema: Otsu y GrabCut. Otsu busca solo un umbral en la imagen en gris y separa objeto de fondo; después limpiamos con morfología (open para quitar puntos sueltos, close para rellenar huecos de la herramienta). GrabCut es distinto: le pasamos el bounding box que ya dio YOLO, marca todo lo de afuera como fondo seguro y adentro decide qué es herramienta. Los pusimos lado a lado como se ve en la tira de la imagen: original, máscara Otsu, overlay Otsu y overlay GrabCut.</p>
+        <p>El hallazgo fue claro y es la razón de nuestra decisión. Otsu solo funciona bien cuando el fondo es uniforme y con contraste (por ejemplo cartón limpio); en cuanto hay sombras o fondos oscuros el umbral global se degrada y la máscara se ensucia. GrabCut recorta bien la silueta incluso en fondos difíciles, pero necesita el bbox para arrancar, o sea depende del detector. Por eso Otsu y GrabCut quedan como comparación clásica, y la segmentación de producción es la anotación poligonal más la detección aprendida. Así cubrimos el criterio mostrando el método clásico, entendiendo sus límites y justificando por qué no nos alcanza para nuestras imágenes reales.</p>
+        </details>
+        </div>
+        <div class="evi" data-stage="segmentacion"></div>
+      </div>
+    </section>
+      <section class="etapa">
+      <div class="etapa-head">
+        <span class="num" aria-hidden="true">05</span>
+        <span class="chip">Pipeline · 15%</span>
+        <h2>Extracción de características</h2>
+      </div>
+      <div class="etapa-body">
+        <div class="etapa-texto">
+        <ul class="puntos">
+          <li>HOG (forma/bordes): sobre gris a 128 px, orientations=9, celdas 16x16, bloques 2x2, norma L2-Hys. Captura siluetas y ángulos de las herramientas.</li>
+          <li>Histograma de color: 3D en HSV con 8x8x8 casillas, normalizado por norma L2. HSV por su robustez a los cambios de luz en un cuarto no controlado.</li>
+          <li>combined_features concatena HOG + histograma HSV, para tener forma y color en un mismo vector.</li>
+          <li>HOG alimenta el modelo ganador HOG+SVM (accuracy 0.846); el histograma HSV alimenta color_hist_rf (accuracy 0.806, el más flojo de los tres).</li>
+          <li>La CNN no usa estas features: las aprende sola en sus convoluciones desde RGB (accuracy 0.820).</li>
+        </ul>
+        <div class="archivos"><code>src/classification/features.py</code><code>src/classification/preprocessing.py</code></div>
+        <details class="mas"><summary>La explicación completa</summary>
+        <p>La extracción de características es el paso donde cada recorte de herramienta se convierte en números que la máquina sí puede comparar. Un clasificador clásico no "ve" la foto: necesita un vector que resuma lo importante. Nosotros sacamos dos descriptores que miran cosas distintas y se complementan: HOG, que mira la FORMA y los bordes, y un histograma de color en HSV, que mira el COLOR. La idea es simple: una herramienta se reconoce por su silueta y también por el color de su mango.</p>
+        <p>HOG (Histogram of Oriented Gradients) resume la forma. Trabaja sobre la imagen en gris a 128 px, con 9 orientaciones, celdas de 16x16, bloques de 2x2 y normalización L2-Hys. Lo hicimos en gris a propósito: la silueta de un martillo o unas pinzas no depende del color, depende de sus contornos y sus ángulos. HOG cuenta hacia dónde apuntan los bordes en cada zona, así que captura muy bien mangos, cabezas y puntas. Como se ve en la imagen de HOG, quedan marcados los gradientes que dibujan la silueta de la herramienta.</p>
+        <p>El histograma de color 3D en HSV resume el color con 8x8x8 casillas y lo normalizamos con la norma L2 (el vector queda con norma 1). Elegimos HSV y no BGR porque HSV aguanta mejor los cambios de luz, y nuestras fotos se tomaron en un cuarto sin iluminación controlada. Normalizar evita que un recorte grande pese más que uno chico: solo importa la proporción de colores, no el tamaño. Este descriptor ayuda con las herramientas de mango plástico de colores, como se ve en el gráfico del histograma HSV.</p>
+        <p>Los dos son complementarios: la forma sola confunde herramientas de silueta parecida (pinzas vs alicate), y el color solo confunde dos metales grises distintos. Por eso HOG alimenta al modelo ganador (HOG + SVM) y el histograma alimenta al RandomForest de color, y combined_features permite concatenar ambos. La CNN es aparte: no usa HOG ni el histograma, aprende sus propias características dentro de sus capas convolucionales a partir de la imagen RGB.</p>
+        </details>
+        </div>
+        <div class="evi" data-stage="caracteristicas"></div>
+      </div>
+    </section>
+      <section class="etapa">
+      <div class="etapa-head">
+        <span class="num" aria-hidden="true">06</span>
+        <span class="chip">Pipeline · 14%</span>
+        <h2>Clasificación</h2>
+      </div>
+      <div class="etapa-body">
+        <div class="etapa-texto">
+        <ul class="puntos">
+          <li>3 modelos con la misma interfaz (train/predict/save/load), evaluados sobre N = 434 recortes de test nunca vistos, con split 70/20/10 estratificado.</li>
+          <li>GANADOR HOG + SVM (RBF, StandardScaler): accuracy 0.846, macro-F1 0.824. Train 17.9s / pred 3.5s. La silueta es la señal más robusta con pocos datos.</li>
+          <li>cnn (~200k params, entrada RGB 96x96, CrossEntropy ponderada, early stopping paciencia 6, Adam lr 1e-3): accuracy 0.820, macro-F1 0.808. Train 635.5s / pred 1.9s. Cuesta 35 veces más entrenarla y no alcanza al clásico.</li>
+          <li>color_hist_rf (histograma HSV 8x8x8 + RandomForest 200 árboles, class_weight balanced): accuracy 0.806, macro-F1 0.789. Train 5.2s / pred 0.9s. El más barato, pero el color engaña con metales y brillos.</li>
+          <li>Errores clave: confusión pinzas <-> alicate por siluetas parecidas (la CNN manda el 27% de los alicates a pinzas); peores F1 por modelo -> hog_svm llave_inglesa 0.67, cnn pinzas 0.68, color_hist_rf llave_combinada 0.69.</li>
+        </ul>
+        <div class="archivos"><code>src/classification/models/hog_svm.py</code><code>src/classification/models/color_hist_rf.py</code><code>src/classification/models/cnn.py</code><code>src/classification/evaluation.py</code><code>src/classification/dataset_builder.py</code><code>scripts/run_ml_dataset.py</code></div>
+        <details class="mas"><summary>La explicación completa</summary>
+        <p>Esta es la etapa donde ponemos nombre a cada herramienta. El detector YOLO ya nos dice dónde está cada objeto y recorta esa caja en una imagen pequeña (un crop). El clasificador toma ese recorte y decide cuál de las 10 clases es. Construimos 3 modelos distintos con la misma interfaz (train / predict / save / load) para poder compararlos de forma justa. La idea era enfrentar dos enfoques clásicos (forma y color) contra una red neuronal, y ver cuál aguanta mejor con nuestros pocos datos.</p>
+        <p>Ganó HOG + SVM: accuracy 0.846 y macro-F1 0.824. El por qué es la lección más importante del proyecto. Con solo 597 imágenes derivadas de 36 fotos de 4 personas, la señal más confiable es la SILUETA, no el color. HOG describe la forma y los bordes de la herramienta, y el SVM con kernel RBF separa muy bien en muchas dimensiones aunque haya pocos ejemplos. La segunda fue la CNN (accuracy 0.820, macro-F1 0.808): con más capacidad que los clásicos, pero sin datos suficientes para aprovecharla, y costando 635s de entrenamiento contra 18s del ganador. Última quedó color_hist_rf (accuracy 0.806, macro-F1 0.789), y tiene sentido: la mitad de nuestras clases son metal gris, así que llave_inglesa, llave_combinada y llave_tubo tienen casi el mismo histograma HSV.</p>
+        <p>Los errores se ven claros en las matrices de confusión de los 3 modelos (imagen al lado). La confusión típica es pinzas contra alicate, porque sus siluetas se parecen mucho, y aparece en los tres modelos: la CNN manda el 27% de los alicates a pinzas, color_hist_rf manda el 18% de las pinzas a alicate y HOG+SVM el 11%. Por clase, HOG+SVM sufre más con llave_inglesa (F1 0.67) y llave_tubo (0.76); la CNN se cae en pinzas (0.68) y alicate (0.70); y color_hist_rf falla en llave_combinada (0.69) y alicate (0.74). Un patrón que vale la pena señalar: llave_inglesa es la peor clase justamente porque es la que menos ejemplos tiene de todo el dataset.</p>
+        <p>El manejo del entrenamiento fue pensado para no hacer trampa con tan pocos datos. Usamos un split 70/20/10 estratificado (misma proporción de clases en train/val/test) y evaluamos sobre N = 434 recortes de test que el modelo nunca vio. Para compensar el desbalance de clases, RandomForest usa class_weight balanced y la CNN usa CrossEntropy ponderada por clase. La CNN además tiene early stopping (paciencia 6) para cortar antes de sobreajustar, y el SVM lleva StandardScaler para que converja bien. Con esto, cada modelo se mide en igualdad de condiciones.</p>
+        </details>
+        </div>
+        <div class="evi" data-stage="clasificacion"></div>
+      </div>
+    </section>
+      <section class="etapa">
+      <div class="etapa-head">
+        <span class="num" aria-hidden="true">07</span>
+        <span class="chip">Pipeline · Reconocimiento de patrones 8%</span>
+        <h2>Detección y evaluación</h2>
+      </div>
+      <div class="etapa-body">
+        <div class="etapa-texto">
+        <ul class="puntos">
+          <li>Modelo: YOLOv8n con fine-tuning desde pesos COCO, 100 épocas, imgsz 640, con early stopping (patience 20) y el aumento interno de YOLO apagado porque el aumento ya se hizo en M2.</li>
+          <li>Métricas reales en test: mAP@0.5=0.943, mAP@0.5:0.95=0.796, precision=0.867, recall=0.920. En validación: 0.954 / 0.838 / 0.898 / 0.921. Meta académica mAP@0.5>=0.75 superada con margen.</li>
+          <li>Las 3 peores clases del detector (pinzas 0.854, llave_inglesa 0.859, alicate 0.864 de AP@0.5) son las MISMAS 3 que peor clasifican los modelos de ML: el problema no es de arquitectura, es del dataset.</li>
+          <li>Análisis crítico del comportamiento: domain shift en fotos de internet, sesgo de color (aprendió que "amarillo compacto = metro") y confusión pinzas<->alicate por siluetas parecidas.</li>
+          <li>Reproducible: evaluate() corre la validación y genera curva PR, curvas P/R/F1 y matriz de confusión en outputs/metricas/; todo el código está en GitHub.</li>
+        </ul>
+        <div class="archivos"><code>src/detection/detector.py</code><code>scripts/serve_app.py</code></div>
+        <details class="mas"><summary>La explicación completa</summary>
+        <p>Esta etapa es el corazón del sistema: el detector que encuentra cada herramienta en la foto y le pone un recuadro con su nombre. Usamos YOLOv8n (la versión nano, la más pequeña) y le hicimos fine-tuning: partimos de los pesos que YOLO ya trae aprendidos de COCO y solo lo reentrenamos con nuestras herramientas durante 100 épocas a 640 px. Elegimos la nano por dos razones: nuestro dataset es pequeño (597 imágenes derivadas de 36 fotos) y un modelo grande se sobreajustaría; además tiene que correr en el demo en vivo, incluso en CPU. Apagamos el aumento interno de YOLO a propósito, porque el aumento ya lo hicimos nosotros en el módulo anterior y no queríamos duplicarlo.</p>
+        <p>Los números salieron bien. Sobre el split de test, que el modelo nunca vio, el detector logra mAP@0.5=0.943, mAP@0.5:0.95=0.796, precision=0.867 y recall=0.920; en validación llega a 0.954 / 0.838 / 0.898 / 0.921. La meta académica era mAP@0.5>=0.75, así que la superamos con margen. La caída de validación a test es reveladora: el recall casi no se mueve (0.921 -> 0.920), o sea que sigue ENCONTRANDO las herramientas igual de bien, pero mAP@0.5:0.95 baja 4 puntos porque las encuadra un poco peor. Toda la evaluación es reproducible: la función evaluate() la corre sola y guarda las curvas Precision-Recall, las de P/R/F1 y la matriz de confusión en outputs/metricas/, que son justo las imágenes que se ven al lado de este texto.</p>
+        <p>Mirar las métricas por clase deja ver dónde está el problema real. Las tres peores del detector son pinzas (AP@0.5 0.854), llave_inglesa (0.859) y alicate (0.864), y son exactamente las mismas tres que peor clasifican los modelos de ML de la etapa anterior. Cuatro arquitecturas distintas fallando en las mismas clases no es casualidad de una arquitectura: es el dataset. llave_inglesa tiene 5 instancias anotadas en todo el proyecto, y pinzas y alicate se cruzan entre sí porque comparten silueta.</p>
+        <p>Pero un buen número no cuenta toda la historia, y aquí está la parte crítica. Probamos el demo de verdad. En fotos parecidas a las del dataset detecta bien las herramientas presentes con la clase correcta. En fotos sacadas de internet se degrada: es el cambio de dominio (domain shift). Vimos tres cosas concretas. Primero, un sesgo de color: aprendió que 'amarillo compacto = metro' y marcó como metro un objeto amarillo que no lo era, mientras que no reconoció un flexómetro de otro color. Segundo, confunde pinzas con alicate porque tienen siluetas parecidas, y como no aplicamos NMS entre clases distintas, a veces salen duplicados sobre el mismo objeto. Tercero, ignora lo que no conoce (clavadora, gafas, escuadra): no hay manejo de 'desconocido', el sistema solo sabe decir una de las 10 palabras que le enseñamos.</p>
+        <p>No lo vemos como un fallo sino como el límite esperado de entrenar con 36 fotos originales de solo 4 personas y fondos poco variados. Reconocer patrones es también reconocer dónde el modelo se equivoca y por qué. La solución no es esconderlo: es más datos y más variados, balanceo de clases, un NMS agnóstico de clase para los duplicados pinzas/alicate y un umbral de rechazo para lo desconocido. Todo el código (train/predict/evaluate en un solo archivo, más el servidor del demo) está en GitHub para que cualquiera reproduzca los mismos resultados.</p>
+        </details>
+        </div>
+        <div class="evi" data-stage="deteccion"></div>
+      </div>
+    </section>
+      <section class="etapa">
+      <div class="etapa-head">
+        <span class="num" aria-hidden="true">08</span>
+        <span class="chip">Cierre</span>
+        <h2>Conclusiones y trabajo futuro</h2>
+      </div>
+      <div class="etapa-body">
+        <div class="etapa-texto">
+        <ul class="puntos">
+          <li>Pipeline completo y demo en vivo: el jurado sube una foto, corre YOLO y la página devuelve imagen anotada más inventario (endpoints /detectar, /modelos, /historial, /metricas, /evidencia).</li>
+          <li>Detección por encima de la meta: mAP@0.5=0.943 en test (meta 0.75), mAP@0.5:0.95=0.796, precision 0.867, recall 0.920, con 100 épocas de YOLOv8n.</li>
+          <li>Con pocos datos ganan los clásicos: HOG+SVM (accuracy 0.846, macro_f1 0.824) por encima de la CNN (0.820) y de color_hist_rf (0.806), y entrenando 35 veces más rápido que la red; por eso el clásico es el modelo de producción.</li>
+          <li>Funciona en su dominio y se degrada fuera: en fotos de internet aparece domain shift, confusión pinzas<->alicate y sesgo de color ('amarillo compacto = metro').</li>
+          <li>El hallazgo que más nos sirvió: las 3 peores clases del detector (pinzas, llave_inglesa, alicate) son las mismas 3 que peor clasifican los modelos de ML. Cuatro arquitecturas fallando igual señalan al dataset, no al algoritmo.</li>
+          <li>Mejoras concretas ligadas a los límites: más datos y balanceo, transfer learning (MobileNetV2/EfficientNet), NMS agnóstico de clase y umbral de rechazo para lo desconocido.</li>
+        </ul>
+        <div class="archivos"><code>src/data/merge_ndjson.py</code><code>src/detection/augmentation_pipeline.py</code><code>src/detection/detector.py</code><code>src/classification/features.py</code><code>src/classification/models/hog_svm.py</code><code>src/classification/segmentation.py</code><code>scripts/serve_app.py</code></div>
+        <details class="mas"><summary>La explicación completa</summary>
+        <p>Cerramos con un pipeline completo que funciona de punta a punta: unimos las anotaciones de los 4 colaboradores, aumentamos los datos, entrenamos el detector, recortamos cada herramienta y la clasificamos. La demo corre en vivo: el jurado sube una foto, YOLO la procesa y la página devuelve la imagen anotada más el inventario. Elegimos mostrarlo así porque un cierre convence más cuando se ve funcionar, no solo con números. Y los números acompañan: la detección superó la meta académica (pedían mAP@0.5>=0.75 y logramos 0.943 en test).</p>
+        <p>Lo que más aprendimos es que con pocos datos los métodos clásicos ganan. HOG+SVM sacó la mejor accuracy (0.846) y le ganó a la CNN (0.820) usando 35 veces menos tiempo de entrenamiento; una red necesita muchos más ejemplos para rendir. Por eso el modelo de producción es el clásico, no la red. También aprendimos a ser honestos con el dominio: el modelo acierta muy bien en fotos parecidas a las del dataset, pero se degrada en fotos de internet. Ahí confunde pinzas con alicate por las siluetas parecidas y muestra un sesgo de color (aprendió que 'amarillo compacto = metro'). Con 36 fotos originales de solo 4 personas, eso es esperable y preferimos decirlo antes de que lo pregunten.</p>
+        <p>Somos claros con los límites. Tenemos 36 fotos originales con 152 herramientas anotadas en total, poca variedad de fondos e iluminación y solo 4 personas tomando fotos. Otro límite que preferimos decir: el split se hace después del aumento, así que variantes de una misma foto pueden caer en train y en test, y nuestras métricas son optimistas respecto a lo que veríamos con fotos totalmente nuevas. No manejamos la clase 'desconocido', así que si aparece algo fuera de las 10 clases el modelo igual intenta encajarlo. Y no aplicamos NMS entre clases parecidas, por eso salen detecciones duplicadas pinzas/alicate. No son fallos escondidos: son consecuencia directa del tamaño del dataset.</p>
+        <p>Las mejoras futuras salen directo de esos límites, no son ideas sueltas. Queremos más datos y más variados, balancear las clases flojas (llave_inglesa con 5 instancias, llave_combinada con 8 y pinzas con 9), probar transfer learning (MobileNetV2/EfficientNet), agregar un NMS agnóstico de clase para quitar los duplicados y un umbral de rechazo para lo desconocido. Con eso, lo que hoy funciona bien en su dominio debería aguantar mejor fuera de él.</p>
+        </details>
+        </div>
+        <div class="evi" data-stage="conclusiones"></div>
+      </div>
+    </section>
+</main>
+
+<main id="vista-metricas" hidden>
+  <div class="bloque-metricas">
+    <h2>Detección <span class="fina">· YOLOv8</span></h2>
+    <p class="desc">Resultados del modelo de detección tras el fine-tuning
+    (última época sobre el split de validación).</p>
+    <div class="stats" id="stats-det"></div>
+    <div class="galeria" id="gal-det"></div>
+  </div>
+
+  <div class="bloque-metricas">
+    <h2>Clasificación <span class="fina">· 3 modelos ML</span></h2>
+    <p class="desc">Recortes de cada herramienta clasificados con tres métodos:
+    dos clásicos (HOG+SVM, histograma de color+RandomForest) y una CNN.</p>
+    <div class="tabla-wrap"><table class="cmp" id="tabla-cls"></table></div>
+    <div class="galeria" id="gal-cls"></div>
+  </div>
+</main>
+
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Gráfica ampliada">
+  <button class="cerrar" id="lbCerrar" aria-label="Cerrar">×</button>
+  <img id="lbImg" alt="">
+</div>
+
 <footer>
   <span>Detección de herramientas manuales · caja desordenada, oclusión parcial</span>
   <span>Meta del proyecto: <b>mAP@0.5 ≥ 0.75</b></span>
@@ -274,6 +684,17 @@
   let nColores = 0;
 
   conf.addEventListener('input', () => confVal.textContent = Number(conf.value).toFixed(2));
+
+  // selector de modelo: solo se muestra si hay más de uno disponible
+  const selModelo = document.getElementById('selModelo');
+  (async () => {
+    try {
+      const j = await (await fetch('/modelos')).json();
+      const ms = j.modelos || [];
+      selModelo.innerHTML = ms.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
+      if (ms.length > 1) document.getElementById('selModeloWrap').hidden = false;
+    } catch (e) { /* sin servidor no hay selector */ }
+  })();
 
   // las tres formas de entrar: clic, arrastrar y pegar
   zona.addEventListener('click', () => archivo.click());
@@ -305,7 +726,8 @@
     datos.append('imagen', f);
 
     try {
-      const r = await fetch(`/detectar?conf=${conf.value}`, { method: 'POST', body: datos });
+      const modelo = selModelo.value ? `&modelo=${selModelo.value}` : '';
+      const r = await fetch(`/detectar?conf=${conf.value}${modelo}`, { method: 'POST', body: datos });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || 'Error del servidor');
       mostrar(j);
@@ -313,14 +735,15 @@
     } catch (err) {
       estado.className = 'error';
       estado.textContent = 'No se pudo procesar: ' + err.message +
-        '. Revisa que el servidor esté corriendo (python app.py).';
+        '. Revisa que el servidor esté corriendo (python scripts/serve_app.py).';
     }
   }
 
   function mostrar(j) {
     estado.textContent = '';
     document.getElementById('imgSalida').src = j.imagen;
-    document.getElementById('metaTiempo').textContent = `inferencia: ${j.tiempo_ms} ms`;
+    document.getElementById('metaTiempo').textContent =
+      `inferencia: ${j.tiempo_ms} ms` + (j.modelo ? ` · modelo: ${j.modelo}` : '');
     document.getElementById('metaRuta').textContent =
       j.guardada_en ? `guardada en ${j.guardada_en}` : (j.fecha || '');
     document.getElementById('total').textContent =
@@ -392,6 +815,191 @@
   }
 
   cargarHistorial();  // al abrir la pagina
+
+  // ── Pestañas ───────────────────────────────────────────────
+  const vistas = {
+    detector: document.getElementById('vista-detector'),
+    proyecto: document.getElementById('vista-proyecto'),
+    metricas: document.getElementById('vista-metricas'),
+  };
+  const tabs = {
+    detector: document.getElementById('tab-detector'),
+    proyecto: document.getElementById('tab-proyecto'),
+    metricas: document.getElementById('tab-metricas'),
+  };
+  const cargado = { metricas: false, proyecto: true };
+  cargarEvidencia();                 // "El proyecto" es la vista inicial
+
+  function activar(cual) {
+    for (const k in vistas) {
+      vistas[k].hidden = (k !== cual);
+      tabs[k].classList.toggle('activa', k === cual);
+    }
+    // pequeña entrada animada de la vista que llega
+    vistas[cual].classList.remove('aparece');
+    void vistas[cual].offsetWidth;           // reinicia la animación
+    vistas[cual].classList.add('aparece');
+    if (cual === 'metricas' && !cargado.metricas) { cargarMetricas(); cargado.metricas = true; }
+    if (cual === 'proyecto' && !cargado.proyecto) { cargarEvidencia(); cargado.proyecto = true; }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  for (const k in tabs) tabs[k].addEventListener('click', () => activar(k));
+
+  // ── Reveals al scroll (etapas y gráficas entran suave) ─────
+  const observador = new IntersectionObserver(entradas => {
+    for (const e of entradas) {
+      // revela lo que entra al viewport y también lo que ya quedó arriba
+      // (por si se salta con End, un ancla o scroll muy rápido)
+      if (e.isIntersecting || e.boundingClientRect.top < 0) {
+        e.target.classList.add('vista');
+        observador.unobserve(e.target);
+      }
+    }
+  }, { rootMargin: '0px 0px -8% 0px' });
+
+  function observarRevelables(raiz) {
+    raiz.querySelectorAll('.etapa:not(.revela), .bloque-metricas:not(.revela)').forEach(el => {
+      el.classList.add('revela');
+      observador.observe(el);
+    });
+  }
+  observarRevelables(document);
+
+  // respaldo: si un salto brusco (End, ancla) deja bloques sin revelar, los destapa
+  let scrollPendiente = false;
+  window.addEventListener('scroll', () => {
+    if (scrollPendiente) return;
+    scrollPendiente = true;
+    requestAnimationFrame(() => {
+      scrollPendiente = false;
+      document.querySelectorAll('.revela:not(.vista)').forEach(el => {
+        if (el.getBoundingClientRect().top < window.innerHeight) el.classList.add('vista');
+      });
+    });
+  }, { passive: true });
+
+  // ── Contador animado para las tarjetas de métricas ─────────
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function contarStat(el) {
+    const texto = el.textContent;
+    const num = parseFloat(texto);
+    if (reduceMotion || isNaN(num)) return;
+    const sufijo = texto.replace(/^[\d.]+/, '');
+    const dur = 700, t0 = performance.now();
+    const decimales = (texto.match(/\.(\d+)/) || [, ''])[1].length;
+    function paso(t) {
+      const p = Math.min(1, (t - t0) / dur);
+      const suave = 1 - Math.pow(1 - p, 3);   // ease-out cúbico
+      el.textContent = (num * suave).toFixed(decimales) + sufijo;
+      if (p < 1) requestAnimationFrame(paso);
+      else el.textContent = texto;
+    }
+    requestAnimationFrame(paso);
+  }
+
+  // ── Evidencia por etapa (pestaña El proyecto) ──────────────
+  async function cargarEvidencia() {
+    let ev = {}, met = {}, hist = {};
+    try { ev = await (await fetch('/evidencia')).json(); } catch (e) {}
+    try { met = await (await fetch('/metricas')).json(); } catch (e) {}
+    try { hist = await (await fetch('/historial?limite=1')).json(); } catch (e) {}
+    const clas = met.clasificacion || {}, det = met.deteccion || {};
+    const ultima = (hist.items || [])[0];
+
+    const porEtapa = {
+      problema: ultima ? [{ url: ultima.imagen, titulo: 'Lo que hace el sistema: foto → inventario' }] : [],
+      adquisicion: (ev.adquisicion || []).map(u => ({ url: u, titulo: 'Una foto de cada colaborador' })),
+      preprocesamiento: (ev.preprocesamiento || []).map(u => ({ url: u, titulo: 'Gris · canal H · Canny · Sobel' })),
+      segmentacion: (ev.segmentacion || []).slice(0, 3).map((u, i) => ({ url: u, titulo: `Otsu vs GrabCut (${i + 1})` })),
+      caracteristicas: (ev.caracteristicas || []).map(u => ({ url: u, titulo: u.includes('hog') ? 'HOG · captura la forma' : 'Histograma HSV · captura el color' })),
+      clasificacion: [...(clas.matrices || []), ...(clas.comparativa ? [{ url: clas.comparativa, titulo: 'Comparativa de modelos' }] : [])],
+      deteccion: (det.curvas || []).filter(c => /PR_|confusion|results/i.test(c.url)).concat(det.batches || []),
+    };
+
+    for (const stage in porEtapa) {
+      const cont = document.querySelector(`.evi[data-stage="${stage}"]`);
+      if (cont) cont.innerHTML = porEtapa[stage].map(grafica).join('');
+    }
+  }
+
+  // ── Métricas ───────────────────────────────────────────────
+  const pct = v => (v == null ? '—' : (v * 100).toFixed(1) + '%');
+  const seg = v => (v == null ? '—' : v.toFixed(1) + ' s');
+
+  async function cargarMetricas() {
+    let m;
+    try {
+      m = await (await fetch('/metricas')).json();
+    } catch (e) {
+      document.getElementById('stats-det').innerHTML =
+        '<div class="vacio">No pude cargar las métricas.</div>';
+      return;
+    }
+    pintarDeteccion(m.deteccion);
+    pintarClasificacion(m.clasificacion);
+  }
+
+  function pintarDeteccion(d) {
+    const stats = [
+      { num: pct(d.map50), lbl: 'mAP@0.5', meta: true },
+      { num: pct(d.map5095), lbl: 'mAP@0.5:0.95' },
+      { num: pct(d.precision), lbl: 'Precisión' },
+      { num: pct(d.recall), lbl: 'Recall' },
+      { num: d.epochs ?? '—', lbl: 'Épocas' },
+    ];
+    document.getElementById('stats-det').innerHTML = stats.map(s =>
+      `<div class="stat ${s.meta ? 'meta' : ''}">
+         <div class="num">${s.num}</div><div class="lbl">${s.lbl}</div>
+       </div>`).join('');
+    document.querySelectorAll('#stats-det .stat .num').forEach(contarStat);
+    document.getElementById('gal-det').innerHTML =
+      [...d.curvas, ...d.batches].map(grafica).join('');
+  }
+
+  function pintarClasificacion(c) {
+    // el mejor accuracy se resalta
+    const mejor = Math.max(...c.modelos.map(m => m.accuracy ?? 0));
+    const filas = c.modelos.map(m => `
+      <tr class="${m.accuracy === mejor ? 'top' : ''}">
+        <td class="nombre">${m.nombre}</td>
+        <td>${pct(m.accuracy)}</td>
+        <td>${pct(m.macro_f1)}</td>
+        <td>${m.n_test ?? '—'}</td>
+        <td>${seg(m.train_s)}</td>
+        <td>${seg(m.pred_s)}</td>
+      </tr>`).join('');
+    document.getElementById('tabla-cls').innerHTML = `
+      <thead><tr>
+        <th>Modelo</th><th>Accuracy</th><th>Macro-F1</th>
+        <th>N test</th><th>Train</th><th>Predic.</th>
+      </tr></thead><tbody>${filas}</tbody>`;
+
+    const gal = c.matrices.slice();
+    if (c.comparativa) gal.push({ titulo: 'Comparativa', url: c.comparativa });
+    document.getElementById('gal-cls').innerHTML = gal.map(grafica).join('');
+  }
+
+  // una tarjeta de gráfica (abre lightbox al hacer clic)
+  function grafica(g) {
+    return `<button class="grafica" data-url="${g.url}">
+      <img src="${g.url}" alt="${g.titulo}" loading="lazy">
+      <div class="cap">${g.titulo}</div>
+    </button>`;
+  }
+
+  // ── Lightbox ───────────────────────────────────────────────
+  const lb = document.getElementById('lightbox');
+  const lbImg = document.getElementById('lbImg');
+  document.addEventListener('click', e => {
+    const b = e.target.closest('.grafica');
+    if (!b) return;
+    lbImg.src = b.dataset.url;
+    lb.classList.add('abierto');
+  });
+  const cerrarLb = () => lb.classList.remove('abierto');
+  lb.addEventListener('click', cerrarLb);
+  document.getElementById('lbCerrar').addEventListener('click', cerrarLb);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarLb(); });
 </script>
 </body>
 </html>

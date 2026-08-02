@@ -44,7 +44,7 @@ def color_histogram(img_bgr: np.ndarray,
                     bins: tuple[int, int, int] = (8, 8, 8),
                     color_space: str = "hsv") -> np.ndarray:
     """
-    Histograma 3D de color aplanado y normalizado (suma=1).
+    Histograma 3D de color aplanado y normalizado por norma L2 (norma = 1).
 
     HSV es más robusto a cambios de iluminación que BGR — recomendado
     para las herramientas fotografiadas en un cuarto no controlado.

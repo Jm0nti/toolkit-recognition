@@ -10,7 +10,7 @@ names:
   8: espatula
   9: llave_tubo
 nc: 10
-path: C:\Users\Juan M\Documents\U\Semestre 2026-1\Vision Artificial\toolkit-img-recognition\data\augmented
+path: C:\Users\Juan M\Documents\U\Semestre 2026-1\Vision Artificial\toolkit-img-recognition\branch_juanpa\toolkit-recognition\data\augmented
 test: images/test
 train: images/train
 val: images/val

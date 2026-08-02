@@ -1,7 +1,7 @@
 task: detect
 mode: train
 model: yolov8n.pt
-data: C:\Users\Juan M\Documents\U\Semestre 2026-1\Vision Artificial\toolkit-img-recognition\.data_resuelto.yaml
+data: C:\Users\Juan M\Documents\U\Semestre 2026-1\Vision Artificial\toolkit-img-recognition\branch_juanpa\toolkit-recognition\.data_resuelto.yaml
 epochs: 100
 time: null
 patience: 20
@@ -12,7 +12,7 @@ save_period: -1
 cache: true
 device: cuda
 workers: 2
-project: C:\Users\Juan M\Documents\U\Semestre 2026-1\Vision Artificial\toolkit-img-recognition\runs
+project: C:\Users\Juan M\Documents\U\Semestre 2026-1\Vision Artificial\toolkit-img-recognition\branch_juanpa\toolkit-recognition\runs
 name: tools
 exist_ok: true
 pretrained: true
@@ -103,4 +103,4 @@ erasing: 0.4
 crop_fraction: 1.0
 cfg: null
 tracker: botsort.yaml
-save_dir: C:\Users\Juan M\Documents\U\Semestre 2026-1\Vision Artificial\toolkit-img-recognition\runs\tools
+save_dir: C:\Users\Juan M\Documents\U\Semestre 2026-1\Vision Artificial\toolkit-img-recognition\branch_juanpa\toolkit-recognition\runs\tools

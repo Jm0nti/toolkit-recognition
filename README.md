@@ -23,9 +23,12 @@ métricas, análisis y conclusiones*.
   alicate, llave_inglesa, llave_combinada, brocha, espatula, llave_tubo`). El
   NDJSON unificado descarta cualquier clase fuera de este set (p. ej.
   `rodillo_pintura` de uno de los colaboradores).
-- **Cantidad.** ~30 imágenes originales → **~500 imágenes** tras el aumento
-  (`data/augmented/`) → **3.700 recortes** de bbox para clasificación
+- **Cantidad.** **36 imágenes originales** con **152 instancias anotadas** →
+  **597 imágenes** tras el aumento (factor 12 + 30 % de mosaicos,
+  `data/augmented/`) → **4.113 recortes** de bbox para clasificación
   (`outputs/ml_datasets/crops/`).
+- **Particiones (post-aumento).** train / val / test = 413 / 116 / 68 imágenes
+  (2909 / 807 / 442 instancias). Para clasificación: 2880 / 799 / 434 recortes.
 - **Distribución.** El split por defecto es 70/20/10 estratificado por clase
   dominante. La distribución exacta por clase se imprime al final del Módulo 1
   y en el Módulo 4 al construir los recortes.
@@ -217,13 +220,18 @@ comparados sobre las mismas fotos reales del dataset.
 Estos artefactos los produce Ultralytics automáticamente en `runs/tools/` y
 se copian a `outputs/metricas/` al ejecutar `evaluate`.
 
-**Resultados obtenidos** (última época del fine-tuning, split val):
+**Resultados obtenidos** (YOLOv8n, 100 épocas, ~16.7 min de entrenamiento):
 
-| mAP@0.5 | mAP@0.5:0.95 |
-|---:|---:|
-| **0.956** | 0.838 |
+| Métrica | Validación (116 imgs, 807 inst) | Test (68 imgs, 442 inst) |
+|---|---:|---:|
+| **mAP@0.5** | **0.9535** | **0.9432** |
+| mAP@0.5:0.95 | 0.8379 | 0.7961 |
+| Precision | 0.8977 | 0.8669 |
+| Recall | 0.9206 | 0.9204 |
 
-Se supera con margen la meta académica de mAP@0.5 ≥ 0.75.
+Se supera con margen la meta académica de mAP@0.5 ≥ 0.75. Las tres peores
+clases son `pinzas` (mAP@0.5 = 0.854), `llave_inglesa` (0.859) y `alicate`
+(0.864) — coinciden con las tres peores del clasificador (ver §6).
 
 ### 5.2 Módulo de clasificación (Módulo 4)
 
@@ -238,68 +246,21 @@ Por cada uno de los tres modelos:
 Y la tabla comparativa unificada (`comparison.md`) permite justificar por qué
 un método le gana a otro en el análisis.
 
-**Resultados obtenidos** (los mismos números que `outputs/ml_reports/comparison.md`):
+**Resultados obtenidos** (split test, N = 434 recortes; los mismos números que
+`outputs/ml_reports/comparison.md`):
 
 | Modelo | Accuracy | Macro-F1 | N test | Train (s) | Pred (s) |
 |---|---:|---:|---:|---:|---:|
-| hog_svm       | 0.891 | 0.887 | 495 |  15.1 | 6.04 |
-| color_hist_rf | 0.877 | 0.874 | 495 |   4.9 | 0.62 |
-| cnn           | 0.832 | 0.823 | 495 | 368.4 | 1.30 |
+| hog_svm       | **0.8456** | **0.8241** | 434 |  17.90 | 3.54 |
+| cnn           | 0.8203 | 0.8081 | 434 | 635.49 | 1.87 |
+| color_hist_rf | 0.8065 | 0.7888 | 434 |   5.22 | 0.88 |
 
 Los reportes por clase (P/R/F1) y matrices de confusión están en
 `outputs/ml_reports/`.
 
 ---
 
-## 6. Análisis y conclusiones
-
-1. **Qué método ganó y por qué.** En detección, YOLOv8n fine-tuneado llegó a
-   **mAP@0.5 = 0.956**. En clasificación ganó **HOG+SVM (0.891)**, seguido de
-   cerca por ColorHist+RF (0.877) y más atrás la CNN (0.832). Con ~3.700
-   recortes las herramientas se distinguen sobre todo por su **silueta**
-   (mangos alargados, cabezas metálicas), que es justo lo que HOG captura;
-   la CNN, con más capacidad pero pocos datos, no alcanza a generalizar mejor
-   que los descriptores diseñados a mano.
-2. **Dónde falla cada modelo.** Según los `_metrics.json`: HOG+SVM sufre con
-   `alicate` (F1 0.83), `espatula` (0.85) y `pinzas` (0.86) — el par
-   `pinzas` ↔ `alicate` comparte silueta y es la confusión principal. El RF de
-   color falla más en `llave_tubo` (0.82), porque el color metálico gris es
-   común a varias llaves. La CNN tiene su peor clase en `llave_inglesa`
-   (F1 0.63). Esta confusión se ve también en producción: en la prueba del
-   frontend, la misma foto con `conf = 0.4` produce detecciones duplicadas
-   pinzas/alicate sobre los mismos objetos, que desaparecen al subir el umbral.
-3. **Trade-offs.** ColorHist+RF entrena en 5 s y predice en 0.6 s (ideal como
-   baseline CPU/edge); HOG+SVM es el más preciso pero el más lento en
-   predicción (6 s); la CNN cuesta 368 s de entrenamiento sin mejorar a los
-   clásicos con este volumen de datos.
-4. **Segmentación: por qué el pipeline usa detección aprendida.** La evidencia
-   de `outputs/segmentacion/` muestra que **Otsu** solo funciona cuando el
-   fondo es uniforme y más claro/oscuro que las herramientas; en cajas con
-   sombras o fondos oscuros la máscara global se degrada. **GrabCut**
-   inicializado con el bbox del detector recorta bien las siluetas incluso en
-   fondos difíciles, pero necesita esa inicialización. Por eso la segmentación
-   "de producción" del proyecto es la **anotación poligonal** (NDJSON) + la
-   detección aprendida, y los métodos clásicos quedan implementados y
-   evaluados visualmente como comparación (§4.5).
-5. **Verificación end-to-end del frontend.** Probado con Playwright sobre
-   `http://localhost:8000`: subir una foto real de test detecta las 6
-   herramientas presentes con la clase correcta (metro 0.96, destornilladores
-   0.94/0.93, martillo 0.94, pinzas 0.80, alicate 0.70), el slider de
-   confianza re-filtra en vivo y el historial persiste entre sesiones.
-6. **Inconvenientes durante el proceso.**
-   - Bajo volumen por clase → dependencia fuerte del augmentation.
-   - Anotaciones heterogéneas entre colaboradores → resuelto con `merge_ndjson.py`.
-   - VRAM limitada (6 GB) → workers reducidos en YOLO y fallback CPU en `serve_app.py`.
-   - GrabCut sobre fotos de celular a resolución completa tarda minutos →
-     se reescala a lado máximo 1600 px antes de segmentar.
-7. **Mejoras posibles.** Más datos por clase, transfer learning
-   (MobileNetV2/EfficientNet), features combinadas (HOG + histograma) para
-   sklearn, ensembles, y NMS entre clases parecidas (pinzas/alicate) en el
-   frontend para eliminar duplicados.
-
----
-
-## 7. Estructura del proyecto
+## 6. Estructura del proyecto
 
 ```
 toolkit-recognition/
